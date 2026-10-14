@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "Tea Chat"
+description = "A warm, tea-inspired messaging web app based on the user's existing Next.js WhatsApp clone. Tea Chat keeps the existing Stream chat/video capabilities and Supabase identity while adding a complete branded interface, smoother responsive flows, Google sign-in, and passwordless email verification codes."
+version = "1.0.0"
+id = "artifacts/tea-chat"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 23029
+
+[services.development]
+run = "pnpm --filter @workspace/tea-chat run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/tea-chat", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/tea-chat/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "23029"
+BASE_PATH = "/"
