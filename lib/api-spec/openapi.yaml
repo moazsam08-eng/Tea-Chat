@@ -10,6 +10,8 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: stream
+    description: Secure Stream Chat token operations
 paths:
   /healthz:
     get:
@@ -24,7 +26,32 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /stream/token:
+    post:
+      operationId: getStreamToken
+      tags: [stream]
+      summary: Create a Stream Chat token for the signed-in user
+      description: Validates the Supabase access token and creates a Stream user token without exposing the Stream secret.
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Stream user token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StreamToken"
+        "401":
+          description: Supabase session is missing or invalid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
 components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
   schemas:
     HealthStatus:
       type: object
@@ -33,4 +60,22 @@ components:
           type: string
       required:
         - status
+    StreamToken:
+      type: object
+      properties:
+        userId:
+          type: string
+        name:
+          type: string
+        image:
+          type: ["string", "null"]
+        token:
+          type: string
+      required: [userId, name, image, token]
+    ApiError:
+      type: object
+      properties:
+        error:
+          type: string
+      required: [error]
 
