@@ -12,7 +12,10 @@ export function AuthScreen({ supabase, configurationError }: AuthScreenProps) {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
-  const redirectTo = `${window.location.origin}${import.meta.env.BASE_URL.replace(/\/$/, '')}/auth/callback`;
+  const configuredRedirectTo = import.meta.env.VITE_AUTH_REDIRECT_URL?.trim();
+  const redirectTo = configuredRedirectTo || `${window.location.origin}${import.meta.env.BASE_URL.replace(/\/$/, '')}/auth/callback`;
+  const redirectHost = new URL(redirectTo, window.location.origin).hostname;
+  const isLocalRedirect = ['localhost', '127.0.0.1', '::1'].includes(redirectHost);
 
   function readableAuthError(message: string) {
     if (/unsupported provider|provider is not enabled/i.test(message)) {
@@ -106,6 +109,7 @@ export function AuthScreen({ supabase, configurationError }: AuthScreenProps) {
           <h2>{step === 'email' ? 'Make yourself at home.' : 'Your code is the key.'}</h2>
           <p className="auth-intro">{step === 'email' ? 'Sign in to pick up right where your conversations left off.' : `Enter the verification code we sent to ${email}.`}</p>
           {configurationError && <div className="auth-error" role="alert" data-testid="status-auth-configuration">{configurationError}</div>}
+          {isLocalRedirect && <div className="auth-error" role="alert" data-testid="status-local-auth-redirect">Sign-in is set to return to localhost, which your phone cannot reach. Open Tea Chat from its public Replit URL, or set VITE_AUTH_REDIRECT_URL to the public callback URL (for example, https://your-app.example/auth/callback) and allow it in Supabase Authentication → URL Configuration.</div>}
           {error && <div className="auth-error" role="alert" data-testid="status-auth-error">{error}</div>}
           {message && <div className="auth-info" role="status" data-testid="status-auth-message">{message}</div>}
           {step === 'email' ? (
