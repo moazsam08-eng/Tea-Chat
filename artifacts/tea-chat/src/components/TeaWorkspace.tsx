@@ -184,64 +184,66 @@ export function TeaWorkspace({ user, streamToken, supabase, onSignOut }: Workspa
     }
   }
 
+  const chatFrame = (
+    <section className={`chat-frame${mobileOpen ? ' mobile-channel-open' : ''}`} data-testid="chat-workspace">
+      <aside className="chat-sidebar">
+        <div className="sidebar-top">
+          <div className="sidebar-brand-row">
+            <div className="brand-mark" data-testid="brand-workspace"><span className="brand-glyph"><Leaf size={17} /></span><span>tea chat</span></div>
+            <button className="icon-button" type="button" aria-label="Start a conversation" title="Start a conversation" onClick={() => { setNewChatOpen((value) => !value); setNewChatError(''); }} data-testid="button-new-chat"><MessageCirclePlus size={17} /></button>
+          </div>
+          <label className="search-wrap" htmlFor="channel-search"><Search size={15} /><input id="channel-search" type="search" placeholder="Find a conversation" value={search} onChange={(event) => setSearch(event.target.value)} data-testid="input-channel-search" /></label>
+        </div>
+        {newChatOpen && (
+          <form onSubmit={startChat} style={{ margin: '0 16px 9px', padding: 13, background: '#f0f0e8', borderRadius: 10 }} data-testid="form-new-chat">
+            <p className="new-chat-hint">Ask them to copy their Tea Chat ID from the lower-left of their app.</p>
+            <label className="field-label" htmlFor="member-id">Their Tea Chat user ID</label>
+            <div style={{ display: 'flex', gap: 7 }}>
+              <input id="member-id" className="tea-input" style={{ height: 38, fontSize: 12 }} value={newMemberId} onChange={(event) => setNewMemberId(event.target.value)} placeholder="Paste Tea Chat ID" required data-testid="input-new-chat-user-id" />
+              <button className="icon-button" type="submit" disabled={working || !client} aria-label="Create conversation" data-testid="button-create-chat"><ArrowLeft size={17} style={{ transform: 'rotate(180deg)' }} /></button>
+            </div>
+            {newChatError && <p className="auth-error" role="alert" style={{ margin: '9px 0 0' }} data-testid="status-new-chat-error">{newChatError}</p>}
+          </form>
+        )}
+        <div className="sidebar-label">{search.trim() ? 'Matching conversations' : 'Your conversations'}</div>
+        <div className="channel-list-shell" onClick={() => { setMobileOpen(true); if (!search.trim()) setActiveChannel(null); }} data-testid="list-conversations">
+          {search.trim() ? (
+            results.length ? results.map((channel) => {
+              const channelName = (channel.data as Record<string, unknown> | undefined)?.name;
+              const title = (typeof channelName === 'string' && channelName.trim() ? channelName.trim() : '') || Object.values(channel.state.members).filter((member) => member.user_id !== streamToken.userId).map((member) => member.user?.name || member.user_id).join(', ') || 'Conversation';
+              return <button key={channel.cid} type="button" onClick={() => { void selectSearchResult(channel); }} style={{ width: 'calc(100% - 18px)', margin: '2px 9px', border: 0, borderRadius: 10, background: activeChannel?.cid === channel.cid ? '#e8eee5' : 'transparent', padding: '12px', textAlign: 'left', color: 'var(--ink)' }} data-testid={`button-search-channel-${channel.id}`}><strong style={{ display: 'block', fontSize: 13 }}>{title}</strong><span style={{ color: '#828c83', fontSize: 11 }}>{channel.state.messages.at(-1)?.text || 'Open conversation'}</span></button>;
+            }) : <div style={{ padding: '14px 20px', color: '#879188', fontSize: 12 }} data-testid="status-search-empty">{client ? 'No matching conversations.' : 'Connecting to your conversations…'}</div>
+          ) : client ? <ChannelList filters={filters} sort={sort} options={options} /> : (
+            <div style={{ padding: 18 }} aria-label="Loading conversations" data-testid="status-channel-loading"><div style={{ height: 52, borderRadius: 10, background: '#eeeee7', marginBottom: 8 }} /><div style={{ height: 52, borderRadius: 10, background: '#eeeee7', marginBottom: 8 }} /><div style={{ height: 52, borderRadius: 10, background: '#eeeee7' }} /></div>
+          )}
+        </div>
+        <div className="sidebar-bottom">
+          <div className="user-avatar" data-testid="avatar-current-user">{avatarUrl ? <img src={avatarUrl} alt="" /> : initials}</div>
+          <div className="user-meta"><strong data-testid="text-current-user">{displayName}</strong><span>Here for a good chat</span></div>
+          <button className="copy-id-button" type="button" onClick={() => { void copyUserId(); }} title={idCopied ? 'Tea Chat ID copied' : 'Copy your Tea Chat ID'} aria-label={idCopied ? 'Tea Chat ID copied' : 'Copy your Tea Chat ID'} data-testid="button-copy-user-id">{idCopied ? <Check size={14} /> : <Copy size={14} />}<span>{idCopied ? 'Copied' : 'Copy ID'}</span></button>
+          <button className="icon-button" type="button" onClick={() => { void supabase.auth.signOut(); onSignOut(); }} title="Sign out" aria-label="Sign out" data-testid="button-sign-out"><LogOut size={16} /></button>
+        </div>
+      </aside>
+      <section className="chat-main" data-testid="panel-chat">
+        <button className="mobile-back" type="button" onClick={() => setMobileOpen(false)} aria-label="Back to conversations" data-testid="button-mobile-back"><ArrowLeft size={17} /></button>
+        {connectionError && <div style={{ position: 'absolute', zIndex: 8, top: 12, left: 62, right: 12 }} className="auth-error" role="alert" data-testid="status-stream-error"><CircleAlert size={14} style={{ verticalAlign: 'middle', marginRight: 5 }} />{connectionError}{apiKey && <button type="button" onClick={() => { setConnectionError(''); setConnectionAttempt((attempt) => attempt + 1); }} className="text-button" style={{ marginLeft: 9 }} data-testid="button-retry-stream-connect">Try again</button>}</div>}
+        {client ? (
+          activeChannel
+            ? <Channel channel={activeChannel}><ConversationPanel disabled={working || !apiKey} onCall={(channel, audioOnly) => { void startCall(channel, audioOnly); }} /></Channel>
+            : <Channel><ConversationPanel disabled={working || !apiKey} onCall={(channel, audioOnly) => { void startCall(channel, audioOnly); }} /></Channel>
+        ) : !connectionError && (
+          <div className="chat-empty-state" data-testid="empty-chat-loading">
+            <div className="empty-note"><div className="cup-illustration"><div className="loading-leaf" /></div><h2>Warming the teapot</h2><p>Connecting your conversations, just a moment.</p></div>
+          </div>
+        )}
+        {!client && connectionError && !apiKey && <div className="chat-empty-state"><div className="empty-note"><div className="cup-illustration"><CircleAlert size={25} /></div><h2>One small setup step</h2><p>{connectionError}</p></div></div>}
+      </section>
+    </section>
+  );
+
   return (
     <main className="tea-app app-frame" data-testid="screen-workspace">
-      <section className={`chat-frame${mobileOpen ? ' mobile-channel-open' : ''}`} data-testid="chat-workspace">
-        <aside className="chat-sidebar">
-          <div className="sidebar-top">
-            <div className="sidebar-brand-row">
-              <div className="brand-mark" data-testid="brand-workspace"><span className="brand-glyph"><Leaf size={17} /></span><span>tea chat</span></div>
-              <button className="icon-button" type="button" aria-label="Start a conversation" title="Start a conversation" onClick={() => { setNewChatOpen((value) => !value); setNewChatError(''); }} data-testid="button-new-chat"><MessageCirclePlus size={17} /></button>
-            </div>
-            <label className="search-wrap" htmlFor="channel-search"><Search size={15} /><input id="channel-search" type="search" placeholder="Find a conversation" value={search} onChange={(event) => setSearch(event.target.value)} data-testid="input-channel-search" /></label>
-          </div>
-          {newChatOpen && (
-            <form onSubmit={startChat} style={{ margin: '0 16px 9px', padding: 13, background: '#f0f0e8', borderRadius: 10 }} data-testid="form-new-chat">
-              <p className="new-chat-hint">Ask them to copy their Tea Chat ID from the lower-left of their app.</p>
-              <label className="field-label" htmlFor="member-id">Their Tea Chat user ID</label>
-              <div style={{ display: 'flex', gap: 7 }}>
-                <input id="member-id" className="tea-input" style={{ height: 38, fontSize: 12 }} value={newMemberId} onChange={(event) => setNewMemberId(event.target.value)} placeholder="Paste Tea Chat ID" required data-testid="input-new-chat-user-id" />
-                <button className="icon-button" type="submit" disabled={working || !client} aria-label="Create conversation" data-testid="button-create-chat"><ArrowLeft size={17} style={{ transform: 'rotate(180deg)' }} /></button>
-              </div>
-              {newChatError && <p className="auth-error" role="alert" style={{ margin: '9px 0 0' }} data-testid="status-new-chat-error">{newChatError}</p>}
-            </form>
-          )}
-          <div className="sidebar-label">{search.trim() ? 'Matching conversations' : 'Your conversations'}</div>
-          <div className="channel-list-shell" onClick={() => { setMobileOpen(true); if (!search.trim()) setActiveChannel(null); }} data-testid="list-conversations">
-            {search.trim() ? (
-              results.length ? results.map((channel) => {
-                const channelName = (channel.data as Record<string, unknown> | undefined)?.name;
-                const title = (typeof channelName === 'string' && channelName.trim() ? channelName.trim() : '') || Object.values(channel.state.members).filter((member) => member.user_id !== streamToken.userId).map((member) => member.user?.name || member.user_id).join(', ') || 'Conversation';
-                return <button key={channel.cid} type="button" onClick={() => { void selectSearchResult(channel); }} style={{ width: 'calc(100% - 18px)', margin: '2px 9px', border: 0, borderRadius: 10, background: activeChannel?.cid === channel.cid ? '#e8eee5' : 'transparent', padding: '12px', textAlign: 'left', color: 'var(--ink)' }} data-testid={`button-search-channel-${channel.id}`}><strong style={{ display: 'block', fontSize: 13 }}>{title}</strong><span style={{ color: '#828c83', fontSize: 11 }}>{channel.state.messages.at(-1)?.text || 'Open conversation'}</span></button>;
-              }) : <div style={{ padding: '14px 20px', color: '#879188', fontSize: 12 }} data-testid="status-search-empty">{client ? 'No matching conversations.' : 'Connecting to your conversations…'}</div>
-            ) : client ? <ChannelList filters={filters} sort={sort} options={options} /> : (
-              <div style={{ padding: 18 }} aria-label="Loading conversations" data-testid="status-channel-loading"><div style={{ height: 52, borderRadius: 10, background: '#eeeee7', marginBottom: 8 }} /><div style={{ height: 52, borderRadius: 10, background: '#eeeee7', marginBottom: 8 }} /><div style={{ height: 52, borderRadius: 10, background: '#eeeee7' }} /></div>
-            )}
-          </div>
-          <div className="sidebar-bottom">
-            <div className="user-avatar" data-testid="avatar-current-user">{avatarUrl ? <img src={avatarUrl} alt="" /> : initials}</div>
-            <div className="user-meta"><strong data-testid="text-current-user">{displayName}</strong><span>Here for a good chat</span></div>
-            <button className="copy-id-button" type="button" onClick={() => { void copyUserId(); }} title={idCopied ? 'Tea Chat ID copied' : 'Copy your Tea Chat ID'} aria-label={idCopied ? 'Tea Chat ID copied' : 'Copy your Tea Chat ID'} data-testid="button-copy-user-id">{idCopied ? <Check size={14} /> : <Copy size={14} />}<span>{idCopied ? 'Copied' : 'Copy ID'}</span></button>
-            <button className="icon-button" type="button" onClick={() => { void supabase.auth.signOut(); onSignOut(); }} title="Sign out" aria-label="Sign out" data-testid="button-sign-out"><LogOut size={16} /></button>
-          </div>
-        </aside>
-        <section className="chat-main" data-testid="panel-chat">
-          <button className="mobile-back" type="button" onClick={() => setMobileOpen(false)} aria-label="Back to conversations" data-testid="button-mobile-back"><ArrowLeft size={17} /></button>
-          {connectionError && <div style={{ position: 'absolute', zIndex: 8, top: 12, left: 62, right: 12 }} className="auth-error" role="alert" data-testid="status-stream-error"><CircleAlert size={14} style={{ verticalAlign: 'middle', marginRight: 5 }} />{connectionError}{apiKey && <button type="button" onClick={() => { setConnectionError(''); setConnectionAttempt((attempt) => attempt + 1); }} className="text-button" style={{ marginLeft: 9 }} data-testid="button-retry-stream-connect">Try again</button>}</div>}
-          {client ? (
-            <Chat client={client} theme="str-chat__theme-light">
-              {activeChannel
-                ? <Channel channel={activeChannel}><ConversationPanel disabled={working || !apiKey} onCall={(channel, audioOnly) => { void startCall(channel, audioOnly); }} /></Channel>
-                : <Channel><ConversationPanel disabled={working || !apiKey} onCall={(channel, audioOnly) => { void startCall(channel, audioOnly); }} /></Channel>}
-            </Chat>
-          ) : !connectionError && (
-            <div className="chat-empty-state" data-testid="empty-chat-loading">
-              <div className="empty-note"><div className="cup-illustration"><div className="loading-leaf" /></div><h2>Warming the teapot</h2><p>Connecting your conversations, just a moment.</p></div>
-            </div>
-          )}
-          {!client && connectionError && !apiKey && <div className="chat-empty-state"><div className="empty-note"><div className="cup-illustration"><CircleAlert size={25} /></div><h2>One small setup step</h2><p>{connectionError}</p></div></div>}
-        </section>
-      </section>
+      {client ? <Chat client={client} theme="str-chat__theme-light">{chatFrame}</Chat> : chatFrame}
       {call && videoClient && (
         <Suspense fallback={<div className="call-loading" role="status">Connecting your call…</div>}>
           <VideoCallModal
