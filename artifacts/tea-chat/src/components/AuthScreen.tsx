@@ -14,6 +14,13 @@ export function AuthScreen({ supabase, configurationError }: AuthScreenProps) {
   const [error, setError] = useState('');
   const redirectTo = `${window.location.origin}${import.meta.env.BASE_URL.replace(/\/$/, '')}/auth/callback`;
 
+  function readableAuthError(message: string) {
+    if (/unsupported provider|provider is not enabled/i.test(message)) {
+      return 'Google sign-in is not enabled in Supabase yet. Enable Google under Authentication → Providers, then add its OAuth credentials.';
+    }
+    return message;
+  }
+
   async function signInGoogle() {
     if (!supabase) return;
     setBusy(true);
@@ -23,9 +30,9 @@ export function AuthScreen({ supabase, configurationError }: AuthScreenProps) {
         provider: 'google',
         options: { redirectTo },
       });
-      if (authError) setError(authError.message);
+      if (authError) setError(readableAuthError(authError.message));
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : 'Could not start Google sign-in.');
+      setError(readableAuthError(reason instanceof Error ? reason.message : 'Could not start Google sign-in.'));
     } finally {
       setBusy(false);
     }
@@ -40,7 +47,7 @@ export function AuthScreen({ supabase, configurationError }: AuthScreenProps) {
     try {
       const { error: authError } = await supabase.auth.signInWithOtp({
         email: email.trim(),
-        options: { shouldCreateUser: true },
+        options: { shouldCreateUser: true, emailRedirectTo: redirectTo },
       });
       if (authError) setError(authError.message);
       else {

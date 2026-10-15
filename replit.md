@@ -7,6 +7,7 @@ Tea Chat is a responsive, tea-inspired messaging app for real conversations, bui
 - `pnpm --filter @workspace/tea-chat run dev` — run the Tea Chat web app
 - `pnpm --filter @workspace/api-server run dev` — run the API server
 - `pnpm --filter @workspace/tea-chat run typecheck` — typecheck the web app
+- `PORT=3000 BASE_PATH=/ pnpm --filter @workspace/tea-chat run build` — build the root-mounted web artifact
 - `pnpm run typecheck` — full typecheck across all packages
 - `pnpm run build` — typecheck + build all packages
 - `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
