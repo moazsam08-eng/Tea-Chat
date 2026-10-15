@@ -12,6 +12,8 @@ tags:
     description: Health operations
   - name: stream
     description: Secure Stream Chat token operations
+  - name: people
+    description: Tea Chat member discovery and profile management
 paths:
   /healthz:
     get:
@@ -47,6 +49,72 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApiError"
+  /stream/profile:
+    put:
+      operationId: updateStreamProfile
+      tags: [stream]
+      summary: Update the signed-in member's Stream profile
+      description: Validates the Supabase access token before changing the member's display name and profile photo in Stream.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProfileUpdate"
+      responses:
+        "200":
+          description: Updated profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Profile"
+        "401":
+          description: Supabase session is missing or invalid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /people:
+    get:
+      operationId: listPeople
+      tags: [people]
+      summary: Search Tea Chat members
+      description: Returns public member names and profile photos only; email addresses are never included.
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: query
+          name: search
+          schema:
+            type: string
+            maxLength: 80
+          description: Optional name prefix to search for.
+        - in: query
+          name: ids
+          schema:
+            type: string
+          description: Optional comma-separated member IDs used to resolve existing connections.
+        - in: query
+          name: offset
+          schema:
+            type: integer
+            minimum: 0
+            maximum: 1000
+      responses:
+        "200":
+          description: A page of member profiles.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/People"
+        "401":
+          description: Supabase session is missing or invalid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
 components:
   securitySchemes:
     BearerAuth:
@@ -72,6 +140,43 @@ components:
         token:
           type: string
       required: [userId, name, image, token]
+    ProfileUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 2
+          maxLength: 60
+        image:
+          type: [string, "null"]
+          maxLength: 2048
+      required: [name, image]
+    Profile:
+      type: object
+      properties:
+        name:
+          type: string
+        image:
+          type: [string, "null"]
+      required: [name, image]
+    People:
+      type: object
+      properties:
+        users:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProfileWithId"
+        nextOffset:
+          type: [integer, "null"]
+      required: [users, nextOffset]
+    ProfileWithId:
+      allOf:
+        - $ref: "#/components/schemas/Profile"
+        - type: object
+          properties:
+            id:
+              type: string
+          required: [id]
     ApiError:
       type: object
       properties:

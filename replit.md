@@ -33,6 +33,9 @@ Tea Chat is a responsive, tea-inspired messaging app for real conversations, bui
 - `artifacts/api-server/src/routes/stream.ts` — verifies Supabase sessions and issues Stream tokens
 - `lib/api-spec/openapi.yaml` — source of truth for the Stream token API contract
 - `artifacts/tea-chat/src/index.css` — app theme and responsive layout
+- `artifacts/tea-chat/src/components/PeoplePanel.tsx` — member directory, friend requests, and friend list
+- `artifacts/tea-chat/src/components/ProfileSettingsModal.tsx` — display-name and profile-photo editing
+- `supabase/setup.sql` — Supabase friend-request table and profile-photo storage policies
 
 ## Architecture decisions
 
@@ -42,7 +45,7 @@ Tea Chat is a responsive, tea-inspired messaging app for real conversations, bui
 
 ## Product
 
-Tea Chat provides real Stream conversations with search, threads, reactions, attachments, and audio/video calls. Email OTP and Google OAuth are the supported sign-in methods.
+Tea Chat provides real Stream conversations with search, threads, reactions, attachments, and audio/video calls. Members can edit their display name and profile photo, discover other members, and send or respond to friend requests. Email OTP and Google OAuth are the supported sign-in methods.
 
 ## User preferences
 
@@ -54,6 +57,7 @@ Tea Chat provides real Stream conversations with search, threads, reactions, att
 - Enable Google as a provider in Supabase and allow the app’s `/auth/callback` URL in its redirect settings.
 - For email codes, configure the Supabase email template to include `{{ .Token }}` and ensure email delivery is enabled.
 - Both the web app and API server need the appropriate Supabase/Stream environment variables; never expose `STREAM_API_SECRET` to the frontend.
+- Run `supabase/setup.sql` once in the Supabase SQL Editor before using friend requests or profile photo uploads. It creates the `friend_requests` table with participant-only RLS and the public `profile-photos` bucket with uploads restricted to each member's own folder.
 
 ## Pointers
 

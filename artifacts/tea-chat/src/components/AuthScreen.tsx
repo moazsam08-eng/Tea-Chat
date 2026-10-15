@@ -1,11 +1,13 @@
 import { useState } from 'react';
 import type { FormEvent } from 'react';
-import { ArrowLeft, ArrowRight, AtSign, Leaf, LoaderCircle } from 'lucide-react';
+import { ArrowLeft, ArrowRight, AtSign, Leaf, LoaderCircle, Moon, Sun } from 'lucide-react';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { useTheme } from '@/components/ThemeContext';
 
 type AuthScreenProps = { supabase: SupabaseClient | null; configurationError?: string };
 
 export function AuthScreen({ supabase, configurationError }: AuthScreenProps) {
+  const { theme, toggleTheme } = useTheme();
   const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
   const [step, setStep] = useState<'email' | 'code'>('email');
@@ -86,6 +88,10 @@ export function AuthScreen({ supabase, configurationError }: AuthScreenProps) {
 
   return (
     <main className="tea-app auth-shell" data-testid="screen-auth">
+      <button className="theme-toggle auth-theme-toggle" type="button" onClick={toggleTheme} aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'} aria-pressed={theme === 'dark'} data-testid="button-theme-toggle-auth">
+        {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
+        <span>{theme === 'dark' ? 'Light mode' : 'Dark mode'}</span>
+      </button>
       <aside className="auth-aside">
         <div className="brand-mark" data-testid="brand-tea-chat">
           <span className="brand-glyph"><Leaf size={18} strokeWidth={1.7} /></span>
@@ -144,6 +150,7 @@ export function AuthScreen({ supabase, configurationError }: AuthScreenProps) {
             </form>
           )}
           <p className="auth-footer">By continuing, you agree to keep the conversation kind.</p>
+          <a className="contact-creator" href="https://wa.link/4pvnkw" target="_blank" rel="noopener noreferrer" data-testid="link-contact-creator">Contact the creator</a>
         </div>
       </section>
     </main>
