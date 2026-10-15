@@ -180,7 +180,7 @@
 .copy-id-button:hover { background: #e8eee5; }
 .new-chat-hint { margin: 0 0 10px; color: #7e8b80; font-size: 10px; line-height: 1.5; }
 .chat-main { min-width: 0; min-height: 0; position: relative; background: #f7f6ef; }
-.chat-main .str-chat { height: 100%; background: transparent; }
+.app-frame > .str-chat { height: 100%; background: transparent; }
 .chat-main .str-chat__container { height: 100%; border: 0; background: transparent; }
 .chat-main .str-chat__main-panel { height: 100%; }
 .chat-main .str-chat__channel { height: 100%; background: transparent; }
