@@ -1,4 +1,4 @@
-import { lazy, Suspense, type FormEvent, useEffect, useMemo, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { StreamChat, type Channel as StreamChannel } from 'stream-chat';
 import type { StreamToken } from '@workspace/api-client-react';
 import {
@@ -15,18 +15,22 @@ import {
 import 'stream-chat-react/dist/css/v2/index.css';
 import {
   ArrowLeft,
-  Check,
   CircleAlert,
-  Copy,
   Leaf,
   LogOut,
   MessageCirclePlus,
+  Moon,
   Phone,
   Search,
+  Sun,
+  UserRound,
   Video,
 } from 'lucide-react';
 import type { Call, StreamVideoClient } from '@stream-io/video-react-sdk';
 import type { SupabaseClient, User } from '@supabase/supabase-js';
+import { PeoplePanel, type Person } from '@/components/PeoplePanel';
+import { ProfileSettingsModal } from '@/components/ProfileSettingsModal';
+import { useTheme } from '@/components/ThemeContext';
 
 const VideoCallModal = lazy(() => import('./VideoCallModal'));
 
@@ -39,6 +43,12 @@ type WorkspaceProps = {
 
 export function TeaWorkspace({ user, streamToken, supabase, onSignOut }: WorkspaceProps) {
   const apiKey = import.meta.env.VITE_STREAM_API_KEY as string | undefined;
+  const { theme, toggleTheme } = useTheme();
+  const metadataName = user.user_metadata?.full_name;
+  const initialName =
+    typeof metadataName === 'string' && metadataName.trim()
+      ? metadataName.trim()
+      : user.email || streamToken.name;
   const [client, setClient] = useState<StreamChat | null>(null);
   const [connectionError, setConnectionError] = useState('');
   const [connectionAttempt, setConnectionAttempt] = useState(0);
@@ -46,13 +56,13 @@ export function TeaWorkspace({ user, streamToken, supabase, onSignOut }: Workspa
   const [results, setResults] = useState<StreamChannel[]>([]);
   const [activeChannel, setActiveChannel] = useState<StreamChannel | null>(null);
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [newChatOpen, setNewChatOpen] = useState(false);
-  const [newMemberId, setNewMemberId] = useState('');
-  const [newChatError, setNewChatError] = useState('');
+  const [peopleOpen, setPeopleOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [profileName, setProfileName] = useState(initialName);
+  const [profileImage, setProfileImage] = useState<string | null>(streamToken.image);
   const [working, setWorking] = useState(false);
   const [call, setCall] = useState<Call | null>(null);
   const [videoClient, setVideoClient] = useState<StreamVideoClient | null>(null);
-  const [idCopied, setIdCopied] = useState(false);
 
   useEffect(() => {
     if (!apiKey) {
@@ -114,20 +124,17 @@ export function TeaWorkspace({ user, streamToken, supabase, onSignOut }: Workspa
     setMobileOpen(true);
   }
 
-  async function startChat(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!client || !newMemberId.trim()) return;
+  async function startChat(person: Person) {
+    if (!client) return;
     setWorking(true);
-    setNewChatError('');
     try {
-      const channel = client.channel('messaging', { members: [streamToken.userId, newMemberId.trim()] });
+      const channel = client.channel('messaging', { members: [streamToken.userId, person.id] });
       await channel.watch();
       setActiveChannel(channel);
       setMobileOpen(true);
-      setNewChatOpen(false);
-      setNewMemberId('');
+      setPeopleOpen(false);
     } catch (error) {
-      setNewChatError(error instanceof Error ? error.message : 'Could not start this conversation.');
+      setConnectionError(error instanceof Error ? error.message : 'Could not start this conversation.');
     } finally {
       setWorking(false);
     }
@@ -144,8 +151,8 @@ export function TeaWorkspace({ user, streamToken, supabase, onSignOut }: Workspa
           apiKey,
           user: {
             id: streamToken.userId,
-            name: streamToken.name,
-            image: streamToken.image ?? undefined,
+            name: profileName,
+            image: profileImage ?? undefined,
           },
           token: streamToken.token,
         });
@@ -167,22 +174,9 @@ export function TeaWorkspace({ user, streamToken, supabase, onSignOut }: Workspa
   const filters = useMemo(() => ({ type: 'messaging', members: { $in: [streamToken.userId] } }), [streamToken.userId]);
   const sort = useMemo(() => ({ last_message_at: -1 as const }), []);
   const options = useMemo(() => ({ state: true, presence: true, limit: 25 }), []);
-  const metadataName = user.user_metadata?.full_name;
-  const displayName =
-    typeof metadataName === 'string' && metadataName.trim()
-      ? metadataName.trim()
-      : user.email || streamToken.name;
+  const displayName = profileName;
   const initials = displayName.slice(0, 1).toUpperCase() || 'T';
-  const avatarUrl = streamToken.image;
-
-  async function copyUserId() {
-    try {
-      await navigator.clipboard.writeText(streamToken.userId);
-      setIdCopied(true);
-    } catch {
-      setIdCopied(false);
-    }
-  }
+  const avatarUrl = profileImage;
 
   const chatFrame = (
     <section className={`chat-frame${mobileOpen ? ' mobile-channel-open' : ''}`} data-testid="chat-workspace">
@@ -190,37 +184,38 @@ export function TeaWorkspace({ user, streamToken, supabase, onSignOut }: Workspa
         <div className="sidebar-top">
           <div className="sidebar-brand-row">
             <div className="brand-mark" data-testid="brand-workspace"><span className="brand-glyph"><Leaf size={17} /></span><span>tea chat</span></div>
-            <button className="icon-button" type="button" aria-label="Start a conversation" title="Start a conversation" onClick={() => { setNewChatOpen((value) => !value); setNewChatError(''); }} data-testid="button-new-chat"><MessageCirclePlus size={17} /></button>
+            <button className="icon-button" type="button" aria-label="Find people" title="Find people" onClick={() => setPeopleOpen((value) => !value)} data-testid="button-find-people"><MessageCirclePlus size={17} /></button>
           </div>
-          <label className="search-wrap" htmlFor="channel-search"><Search size={15} /><input id="channel-search" type="search" placeholder="Find a conversation" value={search} onChange={(event) => setSearch(event.target.value)} data-testid="input-channel-search" /></label>
+          {!peopleOpen && <label className="search-wrap" htmlFor="channel-search"><Search size={15} /><input id="channel-search" type="search" placeholder="Find a conversation" value={search} onChange={(event) => setSearch(event.target.value)} data-testid="input-channel-search" /></label>}
         </div>
-        {newChatOpen && (
-          <form onSubmit={startChat} style={{ margin: '0 16px 9px', padding: 13, background: '#f0f0e8', borderRadius: 10 }} data-testid="form-new-chat">
-            <p className="new-chat-hint">Ask them to copy their Tea Chat ID from the lower-left of their app.</p>
-            <label className="field-label" htmlFor="member-id">Their Tea Chat user ID</label>
-            <div style={{ display: 'flex', gap: 7 }}>
-              <input id="member-id" className="tea-input" style={{ height: 38, fontSize: 12 }} value={newMemberId} onChange={(event) => setNewMemberId(event.target.value)} placeholder="Paste Tea Chat ID" required data-testid="input-new-chat-user-id" />
-              <button className="icon-button" type="submit" disabled={working || !client} aria-label="Create conversation" data-testid="button-create-chat"><ArrowLeft size={17} style={{ transform: 'rotate(180deg)' }} /></button>
+        {peopleOpen && client ? (
+          <PeoplePanel
+            supabase={supabase}
+            currentUserId={streamToken.userId}
+            onClose={() => setPeopleOpen(false)}
+            onStartChat={(person) => { void startChat(person); }}
+          />
+        ) : (
+          <>
+            <div className="sidebar-label">{search.trim() ? 'Matching conversations' : 'Your conversations'}</div>
+            <div className="channel-list-shell" onClick={() => { setMobileOpen(true); if (!search.trim()) setActiveChannel(null); }} data-testid="list-conversations">
+              {search.trim() ? (
+                results.length ? results.map((channel) => {
+                  const channelName = (channel.data as Record<string, unknown> | undefined)?.name;
+                  const title = (typeof channelName === 'string' && channelName.trim() ? channelName.trim() : '') || Object.values(channel.state.members).filter((member) => member.user_id !== streamToken.userId).map((member) => member.user?.name || member.user_id).join(', ') || 'Conversation';
+                  return <button key={channel.cid} type="button" onClick={() => { void selectSearchResult(channel); }} style={{ width: 'calc(100% - 18px)', margin: '2px 9px', border: 0, borderRadius: 10, background: activeChannel?.cid === channel.cid ? '#e8eee5' : 'transparent', padding: '12px', textAlign: 'left', color: 'var(--ink)' }} data-testid={`button-search-channel-${channel.id}`}><strong style={{ display: 'block', fontSize: 13 }}>{title}</strong><span style={{ color: '#828c83', fontSize: 11 }}>{channel.state.messages.at(-1)?.text || 'Open conversation'}</span></button>;
+                }) : <div style={{ padding: '14px 20px', color: '#879188', fontSize: 12 }} data-testid="status-search-empty">{client ? 'No matching conversations.' : 'Connecting to your conversations…'}</div>
+              ) : client ? <ChannelList filters={filters} sort={sort} options={options} /> : (
+                <div style={{ padding: 18 }} aria-label="Loading conversations" data-testid="status-channel-loading"><div style={{ height: 52, borderRadius: 10, background: '#eeeee7', marginBottom: 8 }} /><div style={{ height: 52, borderRadius: 10, background: '#eeeee7', marginBottom: 8 }} /><div style={{ height: 52, borderRadius: 10, background: '#eeeee7' }} /></div>
+              )}
             </div>
-            {newChatError && <p className="auth-error" role="alert" style={{ margin: '9px 0 0' }} data-testid="status-new-chat-error">{newChatError}</p>}
-          </form>
+          </>
         )}
-        <div className="sidebar-label">{search.trim() ? 'Matching conversations' : 'Your conversations'}</div>
-        <div className="channel-list-shell" onClick={() => { setMobileOpen(true); if (!search.trim()) setActiveChannel(null); }} data-testid="list-conversations">
-          {search.trim() ? (
-            results.length ? results.map((channel) => {
-              const channelName = (channel.data as Record<string, unknown> | undefined)?.name;
-              const title = (typeof channelName === 'string' && channelName.trim() ? channelName.trim() : '') || Object.values(channel.state.members).filter((member) => member.user_id !== streamToken.userId).map((member) => member.user?.name || member.user_id).join(', ') || 'Conversation';
-              return <button key={channel.cid} type="button" onClick={() => { void selectSearchResult(channel); }} style={{ width: 'calc(100% - 18px)', margin: '2px 9px', border: 0, borderRadius: 10, background: activeChannel?.cid === channel.cid ? '#e8eee5' : 'transparent', padding: '12px', textAlign: 'left', color: 'var(--ink)' }} data-testid={`button-search-channel-${channel.id}`}><strong style={{ display: 'block', fontSize: 13 }}>{title}</strong><span style={{ color: '#828c83', fontSize: 11 }}>{channel.state.messages.at(-1)?.text || 'Open conversation'}</span></button>;
-            }) : <div style={{ padding: '14px 20px', color: '#879188', fontSize: 12 }} data-testid="status-search-empty">{client ? 'No matching conversations.' : 'Connecting to your conversations…'}</div>
-          ) : client ? <ChannelList filters={filters} sort={sort} options={options} /> : (
-            <div style={{ padding: 18 }} aria-label="Loading conversations" data-testid="status-channel-loading"><div style={{ height: 52, borderRadius: 10, background: '#eeeee7', marginBottom: 8 }} /><div style={{ height: 52, borderRadius: 10, background: '#eeeee7', marginBottom: 8 }} /><div style={{ height: 52, borderRadius: 10, background: '#eeeee7' }} /></div>
-          )}
-        </div>
         <div className="sidebar-bottom">
           <div className="user-avatar" data-testid="avatar-current-user">{avatarUrl ? <img src={avatarUrl} alt="" /> : initials}</div>
           <div className="user-meta"><strong data-testid="text-current-user">{displayName}</strong><span>Here for a good chat</span></div>
-          <button className="copy-id-button" type="button" onClick={() => { void copyUserId(); }} title={idCopied ? 'Tea Chat ID copied' : 'Copy your Tea Chat ID'} aria-label={idCopied ? 'Tea Chat ID copied' : 'Copy your Tea Chat ID'} data-testid="button-copy-user-id">{idCopied ? <Check size={14} /> : <Copy size={14} />}<span>{idCopied ? 'Copied' : 'Copy ID'}</span></button>
+          <button className="icon-button" type="button" onClick={() => setProfileOpen(true)} title="Edit profile" aria-label="Edit profile" data-testid="button-edit-profile"><UserRound size={16} /></button>
+          <button className="icon-button theme-workspace-toggle" type="button" onClick={toggleTheme} title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'} aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'} aria-pressed={theme === 'dark'} data-testid="button-theme-toggle-workspace">{theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}</button>
           <button className="icon-button" type="button" onClick={() => { void supabase.auth.signOut(); onSignOut(); }} title="Sign out" aria-label="Sign out" data-testid="button-sign-out"><LogOut size={16} /></button>
         </div>
       </aside>
@@ -243,7 +238,17 @@ export function TeaWorkspace({ user, streamToken, supabase, onSignOut }: Workspa
 
   return (
     <main className="tea-app app-frame" data-testid="screen-workspace">
-      {client ? <Chat client={client} theme="str-chat__theme-light">{chatFrame}</Chat> : chatFrame}
+      {client ? <Chat client={client} theme={theme === 'dark' ? 'str-chat__theme-dark' : 'str-chat__theme-light'}>{chatFrame}</Chat> : chatFrame}
+      {profileOpen && (
+        <ProfileSettingsModal
+          userId={streamToken.userId}
+          name={profileName}
+          image={profileImage}
+          supabase={supabase}
+          onClose={() => setProfileOpen(false)}
+          onSaved={(profile) => { setProfileName(profile.name); setProfileImage(profile.image); }}
+        />
+      )}
       {call && videoClient && (
         <Suspense fallback={<div className="call-loading" role="status">Connecting your call…</div>}>
           <VideoCallModal
