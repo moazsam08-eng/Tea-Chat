@@ -1,0 +1,86 @@
+.audio-call-overlay { position: fixed; inset: 0; z-index: 40; display: grid; place-items: center; padding: 20px; background: rgba(15, 25, 19, .76); }
+.audio-call-panel { width: min(100%, 900px); min-height: min(620px, calc(100dvh - 40px)); overflow: hidden; border: 1px solid rgba(255,255,255,.16); border-radius: 20px; color: #263b34; background: #faf8f1; box-shadow: 0 28px 90px rgba(0,0,0,.34); }
+.audio-call-panel > audio { display: none; }
+.audio-call-header { height: 62px; display: flex; align-items: center; justify-content: space-between; padding: 0 20px; border-bottom: 1px solid #e9e5d9; }
+.audio-call-brand { display: flex; align-items: center; gap: 9px; color: #355747; font-size: 13px; font-weight: 700; letter-spacing: -.02em; }
+.audio-call-brand span { width: 27px; height: 27px; display: grid; place-items: center; border: 1px solid #9eb5a1; border-radius: 50%; color: #476c5a; }
+.audio-call-dismiss { width: 34px; height: 34px; display: grid; place-items: center; border: 1px solid #e4e0d5; border-radius: 9px; color: #61776a; background: transparent; cursor: pointer; }
+.audio-call-dismiss:hover { background: #f1eee4; }
+.audio-call-layout { min-height: 558px; display: grid; grid-template-columns: minmax(0, 1fr); }
+.audio-call-panel.with-chat .audio-call-layout { grid-template-columns: minmax(0, 1fr) minmax(270px, 330px); }
+.audio-call-main { min-width: 0; min-height: 558px; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 42px 24px 24px; }
+.audio-call-person { width: min(100%, 390px); display: flex; flex-direction: column; align-items: center; text-align: center; }
+.audio-call-avatar { width: 112px; height: 112px; display: grid; place-items: center; overflow: hidden; border: 1px solid #dce4d9; border-radius: 50%; color: #355747; background: #e9eee5; box-shadow: 0 0 0 11px rgba(220,232,220,.3); font-family: var(--app-font-serif); font-size: 38px; }
+.audio-call-avatar.connected { box-shadow: 0 0 0 11px rgba(127,164,132,.15), 0 0 0 22px rgba(127,164,132,.08); }
+.audio-call-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.audio-call-status { display: inline-flex; align-items: center; gap: 7px; margin-top: 30px; color: #78877b; font-size: 11px; font-weight: 700; letter-spacing: .02em; }
+.audio-call-status.connected { color: #476c5a; }
+.audio-call-status-dot { width: 7px; height: 7px; border-radius: 50%; background: #b09b6a; }
+.audio-call-status.connected .audio-call-status-dot { background: #6b9a72; box-shadow: 0 0 0 4px rgba(107,154,114,.13); }
+.audio-call-person h2 { max-width: 100%; margin: 10px 0 0; overflow: hidden; color: #263b34; font-family: var(--app-font-serif); font-size: clamp(27px, 4vw, 38px); font-weight: 500; letter-spacing: -.04em; text-overflow: ellipsis; white-space: nowrap; }
+.audio-call-duration { margin: 7px 0 0; color: #78877b; font-variant-numeric: tabular-nums; font-size: 14px; letter-spacing: .08em; }
+.audio-call-caption { margin: 7px 0 0; color: #879188; font-size: 12px; }
+.audio-call-actions { display: flex; align-items: center; justify-content: center; gap: 16px; margin-top: 45px; }
+.audio-call-actions.incoming { gap: 24px; }
+.audio-call-control { min-width: 78px; min-height: 77px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; border: 1px solid #e5e2d8; border-radius: 18px; padding: 10px 14px; color: #496352; background: #fffefa; cursor: pointer; transition: transform .15s ease, background .15s ease, border-color .15s ease; }
+.audio-call-control:hover { transform: translateY(-2px); border-color: #b9c9b8; background: #f0f4ed; }
+.audio-call-control span { font-size: 10px; font-weight: 700; }
+.audio-call-control.accept { border-color: #557960; color: #fffdf6; background: #557960; }
+.audio-call-control.accept:hover { border-color: #3d6247; background: #3d6247; }
+.audio-call-control.end { border-color: #c85b50; color: #fff; background: #c85b50; }
+.audio-call-control.end:hover { border-color: #aa4239; background: #aa4239; }
+.audio-call-control.muted, .audio-call-control.selected { border-color: #c9b679; color: #665322; background: #f4eedb; }
+.audio-call-privacy { margin: 35px 0 0; color: #97a097; text-align: center; font-size: 10px; line-height: 1.6; }
+.audio-call-chat { min-width: 0; min-height: 0; display: flex; flex-direction: column; border-left: 1px solid #e9e5d9; background: #fffefa; }
+.audio-call-chat-heading { min-height: 64px; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 12px 16px; border-bottom: 1px solid #e9e5d9; }
+.audio-call-chat-heading strong { display: block; color: #355747; font-size: 12px; }
+.audio-call-chat-heading span { display: block; margin-top: 3px; color: #8b958b; font-size: 10px; }
+.audio-call-chat-heading button { width: 30px; height: 30px; display: grid; place-items: center; border: 0; border-radius: 7px; color: #758276; background: transparent; cursor: pointer; }
+.audio-call-chat-heading button:hover { background: #f1eee4; }
+.audio-call-messages { min-height: 0; flex: 1; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; margin: 0; padding: 16px 13px; list-style: none; }
+.audio-call-message { width: fit-content; max-width: 88%; border: 1px solid #e9e5d9; border-radius: 13px 13px 13px 4px; padding: 9px 11px 7px; color: #34483d; background: #f5f3eb; overflow-wrap: anywhere; }
+.audio-call-message.own { align-self: flex-end; border-color: #dce8dc; border-radius: 13px 13px 4px 13px; background: #eaf1e8; }
+.audio-call-message p { margin: 0; font-size: 12px; line-height: 1.55; white-space: pre-wrap; }
+.audio-call-message time { display: block; margin-top: 5px; color: #879188; text-align: right; font-size: 9px; }
+.audio-call-chat-empty { margin: auto 8px; color: #929b92; text-align: center; font-size: 11px; line-height: 1.7; }
+.audio-call-chat-form { display: flex; align-items: center; gap: 8px; padding: 12px; border-top: 1px solid #e9e5d9; }
+.audio-call-chat-form input { min-width: 0; height: 39px; flex: 1; outline: 0; border: 1px solid #e4e0d5; border-radius: 9px; padding: 0 10px; color: #263b34; background: #fffefa; font: inherit; font-size: 11px; }
+.audio-call-chat-form input:focus { border-color: #88a18b; box-shadow: 0 0 0 3px rgba(136,161,139,.16); }
+.audio-call-chat-form input::placeholder { color: #9ba49a; }
+.audio-call-chat-form button { width: 38px; height: 38px; flex: 0 0 auto; display: grid; place-items: center; border: 0; border-radius: 9px; color: #fff; background: #557960; cursor: pointer; }
+.audio-call-chat-form button:hover:not(:disabled) { background: #3d6247; }
+.audio-call-chat-form button:disabled { cursor: not-allowed; opacity: .45; }
+.audio-call-control:focus-visible, .audio-call-dismiss:focus-visible, .audio-call-chat-heading button:focus-visible, .audio-call-chat-form button:focus-visible { outline: 3px solid rgba(91,132,100,.42); outline-offset: 3px; }
+.dark .audio-call-panel { border-color: #35443a; color: var(--ink); background: #17211b; }
+.dark .audio-call-header, .dark .audio-call-chat-heading, .dark .audio-call-chat-form { border-color: #35443a; }
+.dark .audio-call-brand, .dark .audio-call-person h2, .dark .audio-call-chat-heading strong { color: var(--ink); }
+.dark .audio-call-brand span, .dark .audio-call-avatar { border-color: #35443a; color: #c0d7c0; background: #26372c; }
+.dark .audio-call-dismiss, .dark .audio-call-control { border-color: #35443a; color: var(--ink); background: #202d25; }
+.dark .audio-call-dismiss:hover, .dark .audio-call-control:hover { background: #293a2f; }
+.dark .audio-call-control.accept { border-color: #557960; color: #fff; background: #557960; }
+.dark .audio-call-control.end { border-color: #bd554b; color: #fff; background: #bd554b; }
+.dark .audio-call-control.muted, .dark .audio-call-control.selected { border-color: #76673d; color: #f0dfac; background: #3a3422; }
+.dark .audio-call-status.connected { color: #b7d3b9; }
+.dark .audio-call-chat { border-color: #35443a; background: #111a15; }
+.dark .audio-call-message { border-color: #35443a; color: var(--ink); background: #202d25; }
+.dark .audio-call-message.own { border-color: #45634c; background: #263a2d; }
+.dark .audio-call-chat-form input { border-color: #35443a; color: var(--ink); background: #17211b; }
+.dark .audio-call-chat-form button { color: #17211b; background: #a7c7ab; }
+
+@media (max-width: 700px) {
+  .audio-call-overlay { padding: 8px; }
+  .audio-call-panel { width: 100%; min-height: calc(100dvh - 16px); border-radius: 14px; }
+  .audio-call-header { height: 56px; padding: 0 14px; }
+  .audio-call-layout, .audio-call-main { min-height: calc(100dvh - 72px); }
+  .audio-call-panel.with-chat .audio-call-layout { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(260px, 1fr) minmax(220px, 42dvh); }
+  .audio-call-panel.with-chat .audio-call-main { min-height: 0; padding: 24px 14px 18px; }
+  .audio-call-panel.with-chat .audio-call-avatar { width: 78px; height: 78px; font-size: 28px; }
+  .audio-call-panel.with-chat .audio-call-status { margin-top: 22px; }
+  .audio-call-panel.with-chat .audio-call-actions { margin-top: 22px; }
+  .audio-call-panel.with-chat .audio-call-privacy { margin-top: 16px; }
+  .audio-call-chat { border-top: 1px solid #e9e5d9; border-left: 0; }
+  .dark .audio-call-chat { border-color: #35443a; }
+  .audio-call-actions { gap: 11px; margin-top: 34px; }
+  .audio-call-actions.incoming { gap: 17px; }
+  .audio-call-control { min-width: 72px; min-height: 72px; border-radius: 16px; }
+}
