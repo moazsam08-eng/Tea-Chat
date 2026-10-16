@@ -141,7 +141,6 @@ export function useAudioCall({ supabase, userId, displayName, image }: UseAudioC
   const mountedRef = useRef(false);
   const inboxRef = useRef<RealtimeChannel | null>(null);
   const inboxReadyRef = useRef(false);
-  const outboundChannelsRef = useRef(new Map<string, Promise<RealtimeChannel>>());
   const sendQueuesRef = useRef(new Map<string, Promise<void>>());
   const userInfoRef = useRef({ userId, displayName, image });
   const signalHandlerRef = useRef<(value: unknown) => void>(() => undefined);
@@ -224,21 +223,7 @@ export function useAudioCall({ supabase, userId, displayName, image }: UseAudioC
     };
   }
 
-  function removeOutboundChannel(recipientId: string) {
-    const queue = sendQueuesRef.current.get(recipientId);
-    const remove = () => {
-      const channelPromise = outboundChannelsRef.current.get(recipientId);
-      if (channelPromise) {
-        void channelPromise
-          .then((channel) => supabase.removeChannel(channel))
-          .catch(() => undefined);
-      }
-      outboundChannelsRef.current.delete(recipientId);
-      sendQueuesRef.current.delete(recipientId);
-    };
-    if (queue) void queue.finally(remove);
-    else remove();
-  }
+
 
   function clearTimeoutFor(session: AudioSession) {
     if (session.timeoutId !== null) {
@@ -286,10 +271,7 @@ export function useAudioCall({ supabase, userId, displayName, image }: UseAudioC
         ...(options.notify.reason ? { reason: options.notify.reason } : {}),
       };
       void sendToUserRef.current(session.peer.id, notification)
-        .catch(() => undefined)
-        .finally(() => removeOutboundChannel(session.peer.id));
-    } else {
-      removeOutboundChannel(session.peer.id);
+        .catch(() => undefined);
     }
   }
 
@@ -318,71 +300,33 @@ export function useAudioCall({ supabase, userId, displayName, image }: UseAudioC
     });
   }
 
-  async function getOutboundChannel(recipientId: string): Promise<RealtimeChannel> {
-    const existing = outboundChannelsRef.current.get(recipientId);
-    if (existing) return existing;
-
-    const channel = supabase.channel(inboxTopic(recipientId), {
-      config: {
-        private: true,
-        broadcast: { ack: true, self: false },
-      },
-    });
-    const pending = new Promise<RealtimeChannel>((resolve, reject) => {
-      let settled = false;
-      const timeout = window.setTimeout(() => {
-        if (settled) return;
-        settled = true;
-        reject(new Error('Could not connect to call signaling. Check the Supabase Realtime setup.'));
-      }, 12_000);
-
-      channel.subscribe((status, error) => {
-        if (status === 'SUBSCRIBED' && !settled) {
-          settled = true;
-          window.clearTimeout(timeout);
-          resolve(channel);
-        } else if (
-          (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED')
-          && !settled
-        ) {
-          settled = true;
-          window.clearTimeout(timeout);
-          reject(error instanceof Error
-            ? error
-            : new Error('Could not connect to call signaling. Check the Supabase Realtime setup.'));
-        }
-      });
-    });
-
-    let guarded: Promise<RealtimeChannel>;
-    guarded = pending.catch((error: unknown) => {
-      if (outboundChannelsRef.current.get(recipientId) === guarded) {
-        outboundChannelsRef.current.delete(recipientId);
-      }
-      void supabase.removeChannel(channel);
-      throw error;
-    });
-    outboundChannelsRef.current.set(recipientId, guarded);
-    return guarded;
-  }
-
   async function sendToUser(recipientId: string, signal: AudioSignal) {
     const previous = sendQueuesRef.current.get(recipientId) ?? Promise.resolve();
     const next = previous.catch(() => undefined).then(async () => {
-      const channel = await getOutboundChannel(recipientId);
-      const status = await channel.send({
-        type: 'broadcast',
-        event: SIGNAL_EVENT,
-        payload: signal,
+      const channel = supabase.channel(inboxTopic(recipientId), {
+        config: {
+          private: true,
+          broadcast: { ack: true, self: false },
+        },
       });
-      if (status !== 'ok') {
-        throw new Error('Call signaling could not be delivered. Please try again.');
+      try {
+        // Do not subscribe to another user's inbox: send() uses HTTP Broadcast
+        // for an unjoined channel and is authorized by the INSERT policy only.
+        const status = await channel.send({
+          type: 'broadcast',
+          event: SIGNAL_EVENT,
+          payload: signal,
+        });
+        if (status !== 'ok') {
+          throw new Error('Call signaling could not be delivered. Please try again.');
+        }
+      } finally {
+        await supabase.removeChannel(channel).catch(() => undefined);
       }
     });
     sendQueuesRef.current.set(recipientId, next.catch(() => undefined));
     return next;
   }
-
   sendToUserRef.current = sendToUser;
 
   async function flushLocalCandidates(session: AudioSession) {
@@ -527,8 +471,7 @@ export function useAudioCall({ supabase, userId, displayName, image }: UseAudioC
           sentAt: Date.now(),
         };
         void sendToUser(signal.fromUserId, busySignal)
-          .catch(() => undefined)
-          .finally(() => removeOutboundChannel(signal.fromUserId));
+          .catch(() => undefined);
         return;
       }
 
@@ -850,12 +793,6 @@ export function useAudioCall({ supabase, userId, displayName, image }: UseAudioC
         session.remoteStream = null;
       }
       void supabase.removeChannel(inbox);
-      outboundChannelsRef.current.forEach((channelPromise) => {
-        void channelPromise
-          .then((channel) => supabase.removeChannel(channel))
-          .catch(() => undefined);
-      });
-      outboundChannelsRef.current.clear();
       sendQueuesRef.current.clear();
     };
   }, [supabase, userId]);

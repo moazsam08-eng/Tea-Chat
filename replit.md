@@ -58,6 +58,7 @@ Tea Chat provides real Stream conversations with search, threads, reactions, att
 - For email codes, configure the Supabase email template to include `{{ .Token }}` and ensure email delivery is enabled.
 - Both the web app and API server need the appropriate Supabase/Stream environment variables; never expose `STREAM_API_SECRET` to the frontend.
 - Run `supabase/setup.sql` once in the Supabase SQL Editor before using friend requests or profile photo uploads. It creates the `friend_requests` table with participant-only RLS and the public `profile-photos` bucket with uploads restricted to each member's own folder.
+- Reapply `supabase/audio-call-realtime.sql` in the Supabase SQL Editor after its policies change; keep public Realtime access disabled.
 
 ## Pointers
 

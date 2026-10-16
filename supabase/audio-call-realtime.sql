@@ -1,11 +1,10 @@
 -- Tea Chat audio-call signaling.
--- This adds RLS policies only. It does not create, alter, or delete any app tables.
--- Apply once in the Supabase SQL Editor, then disable "Allow public access" in
--- Project Settings > Realtime Settings so all topics must use private channels.
---
--- Broadcast messages are sent over Realtime and are not persisted as call logs.
--- The recipient can read only their own inbox. A sender can publish to an
--- accepted friend's inbox, but cannot read that inbox.
+-- This changes policies only; it does not create, alter, or delete app tables.
+-- Apply or reapply this file in the Supabase SQL Editor after policy changes.
+-- Keep 'Allow public access' disabled so all signaling uses private channels.
+-- Broadcast messages are not persisted as call logs.
+-- Receivers can read only their own inbox. Callers publish to a friend's inbox
+-- over HTTP Broadcast without subscribing to or reading that inbox.
 
 drop policy if exists "Tea Chat audio calls: receive own inbox" on realtime.messages;
 create policy "Tea Chat audio calls: receive own inbox"
@@ -24,11 +23,9 @@ for insert
 to authenticated
 with check (
   realtime.messages.extension = 'broadcast'
-  and (select realtime.topic()) like 'tea-audio:v1:inbox:%'
-  and (
-    realtime.messages.payload ->> 'fromUserId' is null
-    or realtime.messages.payload ->> 'fromUserId' = (select auth.uid())::text
-  )
+  and (select realtime.topic()) ~* '^tea-audio:v1:inbox:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+  and realtime.messages.payload ->> 'fromUserId' = (select auth.uid())::text
+  and realtime.messages.payload ->> 'toUserId' = split_part((select realtime.topic()), ':', 4)
   and exists (
     select 1
     from public.friend_requests as friendship
