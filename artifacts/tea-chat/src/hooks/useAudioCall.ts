@@ -433,9 +433,11 @@ export function useAudioCall({ supabase, userId, displayName, image }: UseAudioC
       if (!isCurrent(session)) return;
       if (peerConnection.connectionState === 'connected') {
         clearTimeoutFor(session);
-        session.phase = 'active';
-        session.startedAt = Date.now();
-        updateSnapshot(session, { phase: 'active', startedAt: session.startedAt });
+        if (session.phase !== 'active') {
+          session.phase = 'active';
+          session.startedAt = Date.now();
+          updateSnapshot(session, { phase: 'active', startedAt: session.startedAt });
+        }
       } else if (peerConnection.connectionState === 'failed') {
         terminateSession(session, {
           notify: { type: 'hangup' },
