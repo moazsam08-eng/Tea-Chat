@@ -616,7 +616,7 @@ export function useAudioCall({ supabase, userId, displayName, image }: UseAudioC
       return;
     }
     if (signal.type === 'busy') {
-      terminateSession(session, { toastMessage: 'They’re already on another call.' });
+      terminateSession(session, { toastMessage: 'Theyâre already on another call.' });
       return;
     }
     if (signal.type === 'cancel') {
@@ -806,31 +806,78 @@ export function useAudioCall({ supabase, userId, displayName, image }: UseAudioC
     mountedRef.current = true;
     inboxReadyRef.current = false;
     setCall(null);
-    const inbox = supabase.channel(inboxTopic(userId), {
-      config: {
-        private: true,
-        broadcast: { ack: true, self: false },
-      },
-    });
-    inboxRef.current = inbox;
-    inbox
-      .on('broadcast', { event: SIGNAL_EVENT }, (payload) => {
-        signalHandlerRef.current(payload);
-      })
-      .subscribe((status, error) => {
-        if (status === 'SUBSCRIBED') {
-          inboxReadyRef.current = true;
-        } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+
+    let cancelled = false;
+    let inbox: RealtimeChannel | null = null;
+    const { data: { subscription: authSubscription } } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        if (session?.user.id === userId) {
+          void supabase.realtime.setAuth(session.access_token);
+        } else {
           inboxReadyRef.current = false;
-          if (mountedRef.current) {
-            notify(error instanceof Error
-              ? error.message
-              : 'Call signaling could not connect. Check the Supabase Realtime setup.', true);
-          }
         }
+      },
+    );
+
+    async function connectInbox() {
+      const { data: { session }, error } = await supabase.auth.getSession();
+      if (cancelled) return;
+      if (error || !session) {
+        inboxReadyRef.current = false;
+        if (mountedRef.current) {
+          notify('Call signaling needs an active Supabase session. Sign in again, then retry.', true);
+        }
+        return;
+      }
+      if (session.user.id !== userId) {
+        inboxReadyRef.current = false;
+        if (mountedRef.current) {
+          notify('Your Supabase session does not match this chat account. Sign out and back in.', true);
+        }
+        return;
+      }
+
+      await supabase.realtime.setAuth(session.access_token);
+      if (cancelled) return;
+
+      const channel = supabase.channel(inboxTopic(userId), {
+        config: {
+          private: true,
+          broadcast: { ack: true, self: false },
+        },
       });
+      inbox = channel;
+      inboxRef.current = channel;
+      channel
+        .on('broadcast', { event: SIGNAL_EVENT }, (payload) => {
+          signalHandlerRef.current(payload);
+        })
+        .subscribe((status, error) => {
+          if (cancelled) return;
+          if (status === 'SUBSCRIBED') {
+            inboxReadyRef.current = true;
+          } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+            inboxReadyRef.current = false;
+            if (mountedRef.current) {
+              notify(error instanceof Error
+                ? error.message
+                : 'Call signaling could not connect. Check the Supabase Realtime setup.', true);
+            }
+          }
+        });
+    }
+
+    void connectInbox().catch((error: unknown) => {
+      if (cancelled || !mountedRef.current) return;
+      inboxReadyRef.current = false;
+      notify(error instanceof Error
+        ? error.message
+        : 'Call signaling could not connect. Check the Supabase Realtime setup.', true);
+    });
 
     return () => {
+      cancelled = true;
+      authSubscription.unsubscribe();
       mountedRef.current = false;
       inboxReadyRef.current = false;
       inboxRef.current = null;
@@ -849,7 +896,7 @@ export function useAudioCall({ supabase, userId, displayName, image }: UseAudioC
         session.localStream = null;
         session.remoteStream = null;
       }
-      void supabase.removeChannel(inbox);
+      if (inbox) void supabase.removeChannel(inbox);
       outboundChannelsRef.current.forEach((channelPromise) => {
         void channelPromise
           .then((channel) => supabase.removeChannel(channel))
