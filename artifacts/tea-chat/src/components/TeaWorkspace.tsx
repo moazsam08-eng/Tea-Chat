@@ -29,10 +29,13 @@ import {
 import type { Call, StreamVideoClient } from '@stream-io/video-react-sdk';
 import type { SupabaseClient, User } from '@supabase/supabase-js';
 import { PeoplePanel, type Person } from '@/components/PeoplePanel';
+import { useAudioCall } from '@/hooks/useAudioCall';
+import { toast } from '@/hooks/use-toast';
 import { ProfileSettingsModal } from '@/components/ProfileSettingsModal';
 import { useTheme } from '@/components/ThemeContext';
 
 const VideoCallModal = lazy(() => import('./VideoCallModal'));
+const AudioCallModal = lazy(() => import('./AudioCallModal'));
 
 type WorkspaceProps = {
   user: User;
@@ -63,6 +66,7 @@ export function TeaWorkspace({ user, streamToken, supabase, onSignOut }: Workspa
   const [working, setWorking] = useState(false);
   const [call, setCall] = useState<Call | null>(null);
   const [videoClient, setVideoClient] = useState<StreamVideoClient | null>(null);
+  const audioCall = useAudioCall({ supabase, userId: streamToken.userId, displayName: profileName, image: profileImage });
 
   useEffect(() => {
     if (!apiKey) {
@@ -141,7 +145,21 @@ export function TeaWorkspace({ user, streamToken, supabase, onSignOut }: Workspa
   }
 
   async function startCall(sourceChannel: StreamChannel | null, audioOnly = false) {
-    if (!apiKey || !sourceChannel) return;
+    if (!sourceChannel) return;
+    if (audioOnly) {
+      const members = Object.values(sourceChannel.state.members);
+      const other = members.find((member) => member.user_id !== streamToken.userId);
+      if (members.length !== 2 || !other?.user_id) {
+        toast({ title: 'Audio calling is available only in one-to-one conversations.', variant: 'destructive' });
+        return;
+      }
+      const peerUser = other.user;
+      const peerName = typeof peerUser?.name === 'string' && peerUser.name.trim() ? peerUser.name.trim() : 'Tea Chat member';
+      const peerImage = typeof peerUser?.image === 'string' ? peerUser.image : null;
+      void audioCall.startCall({ id: other.user_id, name: peerName, image: peerImage });
+      return;
+    }
+    if (!apiKey) return;
     setWorking(true);
     try {
       let activeVideoClient = videoClient;
@@ -248,6 +266,20 @@ export function TeaWorkspace({ user, streamToken, supabase, onSignOut }: Workspa
           onClose={() => setProfileOpen(false)}
           onSaved={(profile) => { setProfileName(profile.name); setProfileImage(profile.image); }}
         />
+      )}
+      {audioCall.call && (
+        <Suspense fallback={<div className="call-loading" role="status">Connecting your audio call…</div>}>
+          <AudioCallModal
+            call={audioCall.call}
+            currentUserId={streamToken.userId}
+            onAccept={() => { void audioCall.acceptCall(); }}
+            onReject={audioCall.rejectCall}
+            onEnd={audioCall.endCall}
+            onToggleMute={audioCall.toggleMute}
+            onToggleChat={audioCall.toggleChat}
+            onSendMessage={audioCall.sendChatMessage}
+          />
+        </Suspense>
       )}
       {call && videoClient && (
         <Suspense fallback={<div className="call-loading" role="status">Connecting your call…</div>}>
