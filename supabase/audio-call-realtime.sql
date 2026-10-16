@@ -25,6 +25,10 @@ to authenticated
 with check (
   realtime.messages.extension = 'broadcast'
   and (select realtime.topic()) like 'tea-audio:v1:inbox:%'
+  and (
+    realtime.messages.payload ->> 'fromUserId' is null
+    or realtime.messages.payload ->> 'fromUserId' = (select auth.uid())::text
+  )
   and exists (
     select 1
     from public.friend_requests as friendship
