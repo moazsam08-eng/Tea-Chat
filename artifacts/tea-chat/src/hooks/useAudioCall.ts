@@ -328,42 +328,12 @@ export function useAudioCall({ supabase, userId, displayName, image }: UseAudioC
         broadcast: { ack: true, self: false },
       },
     });
-    const pending = new Promise<RealtimeChannel>((resolve, reject) => {
-      let settled = false;
-      const timeout = window.setTimeout(() => {
-        if (settled) return;
-        settled = true;
-        reject(new Error('Could not connect to call signaling. Check the Supabase Realtime setup.'));
-      }, 12_000);
-
-      channel.subscribe((status, error) => {
-        if (status === 'SUBSCRIBED' && !settled) {
-          settled = true;
-          window.clearTimeout(timeout);
-          resolve(channel);
-        } else if (
-          (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED')
-          && !settled
-        ) {
-          settled = true;
-          window.clearTimeout(timeout);
-          reject(error instanceof Error
-            ? error
-            : new Error('Could not connect to call signaling. Check the Supabase Realtime setup.'));
-        }
-      });
-    });
-
-    let guarded: Promise<RealtimeChannel>;
-    guarded = pending.catch((error: unknown) => {
-      if (outboundChannelsRef.current.get(recipientId) === guarded) {
-        outboundChannelsRef.current.delete(recipientId);
-      }
-      void supabase.removeChannel(channel);
-      throw error;
-    });
-    outboundChannelsRef.current.set(recipientId, guarded);
-    return guarded;
+    // Do not subscribe to a friend's inbox. Senders have INSERT permission there,
+    // but SELECT is reserved for the inbox owner. Sending before subscribing makes
+    // supabase-js use Realtime's HTTP broadcast endpoint instead.
+    const pending = Promise.resolve(channel);
+    outboundChannelsRef.current.set(recipientId, pending);
+    return pending;
   }
 
   async function sendToUser(recipientId: string, signal: AudioSignal) {
