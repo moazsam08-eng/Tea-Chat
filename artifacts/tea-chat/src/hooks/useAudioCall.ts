@@ -602,7 +602,7 @@ export function useAudioCall({ supabase, userId, displayName, image }: UseAudioC
       return;
     }
     if (!inboxReadyRef.current) {
-      notify('Call signaling is not connected yet. Please try again in a moment.', true);
+      notify('Audio calls need Supabase Realtime Broadcast. Apply supabase/audio-call-realtime.sql in Supabase SQL Editor, then refresh Tea Chat.', true);
       return;
     }
 
@@ -768,7 +768,7 @@ export function useAudioCall({ supabase, userId, displayName, image }: UseAudioC
           if (mountedRef.current) {
             notify(error instanceof Error
               ? error.message
-              : 'Call signaling could not connect. Check the Supabase Realtime setup.', true);
+              : 'Audio calls need Supabase Realtime Broadcast. Apply supabase/audio-call-realtime.sql in Supabase SQL Editor, then refresh Tea Chat.', true);
           }
         }
       });

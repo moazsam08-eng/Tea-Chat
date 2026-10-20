@@ -15,9 +15,24 @@ export function AuthScreen({ supabase, configurationError }: AuthScreenProps) {
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const configuredRedirectTo = import.meta.env.VITE_AUTH_REDIRECT_URL?.trim();
-  const redirectTo = configuredRedirectTo || `${window.location.origin}${import.meta.env.BASE_URL.replace(/\/$/, '')}/auth/callback`;
-  const redirectHost = new URL(redirectTo, window.location.origin).hostname;
-  const isLocalRedirect = ['localhost', '127.0.0.1', '::1'].includes(redirectHost);
+  const fallbackRedirectTo = `${window.location.origin}${import.meta.env.BASE_URL.replace(/\/$/, '')}/auth/callback`;
+  const isLocalHost = (host: string) => ['localhost', '127.0.0.1', '::1'].includes(host.toLowerCase());
+  const isCurrentOriginLocal = isLocalHost(window.location.hostname);
+  let configuredRedirectHost: string | undefined;
+  try {
+    if (configuredRedirectTo) {
+      configuredRedirectHost = new URL(configuredRedirectTo, window.location.origin).hostname;
+    }
+  } catch {
+    configuredRedirectHost = undefined;
+  }
+  const canUseConfiguredRedirect = Boolean(
+    configuredRedirectTo
+      && configuredRedirectHost
+      && !(isLocalHost(configuredRedirectHost) && !isCurrentOriginLocal),
+  );
+  const redirectTo = canUseConfiguredRedirect ? configuredRedirectTo! : fallbackRedirectTo;
+  const isLocalRedirect = isLocalHost(new URL(redirectTo, window.location.origin).hostname);
 
   function readableAuthError(message: string) {
     if (/unsupported provider|provider is not enabled/i.test(message)) {

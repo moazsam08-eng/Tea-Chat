@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
-import { StreamChat, type Channel as StreamChannel } from 'stream-chat';
+import { StreamChat, type Attachment as StreamAttachment, type Channel as StreamChannel } from 'stream-chat';
 import type { StreamToken } from '@workspace/api-client-react';
 import {
   Channel,
@@ -30,6 +30,7 @@ import {
 import type { Call, StreamVideoClient } from '@stream-io/video-react-sdk';
 import type { SupabaseClient, User } from '@supabase/supabase-js';
 import { PeoplePanel, type Person } from '@/components/PeoplePanel';
+import { TeaChatAttachment } from '@/components/TeaChatAttachment';
 import { useAudioCall } from '@/hooks/useAudioCall';
 import { toast } from '@/hooks/use-toast';
 import { ProfileSettingsModal } from '@/components/ProfileSettingsModal';
@@ -44,6 +45,27 @@ type WorkspaceProps = {
   supabase: SupabaseClient;
   onSignOut: () => void;
 };
+
+async function addCallHistoryEntry(channel: StreamChannel, mode: 'audio' | 'video') {
+  const title = mode === 'audio' ? 'Voice call' : 'Video call';
+  try {
+    await channel.sendMessage({
+      text: '',
+      silent: true,
+      attachments: [{
+        type: 'tea_call_log',
+        title,
+        tea_call_mode: mode,
+      } as StreamAttachment],
+    });
+  } catch (error) {
+    toast({
+      title: 'Call history could not be saved',
+      description: error instanceof Error ? error.message : 'The call can still continue.',
+      variant: 'destructive',
+    });
+  }
+}
 
 export function TeaWorkspace({ user, streamToken, supabase, onSignOut }: WorkspaceProps) {
   const apiKey = import.meta.env.VITE_STREAM_API_KEY as string | undefined;
@@ -157,12 +179,14 @@ export function TeaWorkspace({ user, streamToken, supabase, onSignOut }: Workspa
       const peerUser = other.user;
       const peerName = typeof peerUser?.name === 'string' && peerUser.name.trim() ? peerUser.name.trim() : 'Tea Chat member';
       const peerImage = typeof peerUser?.image === 'string' ? peerUser.image : null;
+      await addCallHistoryEntry(sourceChannel, 'audio');
       void audioCall.startCall({ id: other.user_id, name: peerName, image: peerImage });
       return;
     }
     if (!apiKey) return;
     setWorking(true);
     try {
+      await addCallHistoryEntry(sourceChannel, 'video');
       let activeVideoClient = videoClient;
       if (!activeVideoClient) {
         const { createVideoClient } = await import('./VideoCallModal');
@@ -243,8 +267,8 @@ export function TeaWorkspace({ user, streamToken, supabase, onSignOut }: Workspa
         {connectionError && <div style={{ position: 'absolute', zIndex: 8, top: 12, left: 62, right: 12 }} className="auth-error" role="alert" data-testid="status-stream-error"><CircleAlert size={14} style={{ verticalAlign: 'middle', marginRight: 5 }} />{connectionError}{apiKey && <button type="button" onClick={() => { setConnectionError(''); setConnectionAttempt((attempt) => attempt + 1); }} className="text-button" style={{ marginLeft: 9 }} data-testid="button-retry-stream-connect">Try again</button>}</div>}
         {client ? (
           activeChannel
-            ? <Channel channel={activeChannel}><ConversationPanel disabled={working || !apiKey} onCall={(channel, audioOnly) => { void startCall(channel, audioOnly); }} /></Channel>
-            : <Channel><ConversationPanel disabled={working || !apiKey} onCall={(channel, audioOnly) => { void startCall(channel, audioOnly); }} /></Channel>
+            ? <Channel channel={activeChannel} Attachment={TeaChatAttachment}><ConversationPanel disabled={working || !apiKey} onCall={(channel, audioOnly) => { void startCall(channel, audioOnly); }} /></Channel>
+            : <Channel Attachment={TeaChatAttachment}><ConversationPanel disabled={working || !apiKey} onCall={(channel, audioOnly) => { void startCall(channel, audioOnly); }} /></Channel>
         ) : !connectionError && (
           <div className="chat-empty-state" data-testid="empty-chat-loading">
             <div className="empty-note"><div className="cup-illustration"><div className="loading-leaf" /></div><h2>Warming the teapot</h2><p>Connecting your conversations, just a moment.</p></div>

@@ -1,0 +1,1 @@
+- [Tea Chat brand direction](tea-chat-brand.md) — Keep Tea Chat tea-themed, calm, smooth, and easy to use across screens, especially on mobile.

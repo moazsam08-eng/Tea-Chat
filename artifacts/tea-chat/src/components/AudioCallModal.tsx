@@ -31,49 +31,6 @@ function formatDuration(startedAt: number, now: number) {
   return `${minutes}:${seconds}`;
 }
 
-function startRingtone() {
-  const AudioContextConstructor = window.AudioContext;
-  if (!AudioContextConstructor) return () => undefined;
-
-  let context: AudioContext;
-  try {
-    context = new AudioContextConstructor();
-  } catch {
-    return () => undefined;
-  }
-
-  const oscillator = context.createOscillator();
-  const gain = context.createGain();
-  oscillator.type = 'sine';
-  oscillator.frequency.value = 425;
-  gain.gain.value = 0;
-  oscillator.connect(gain);
-  gain.connect(context.destination);
-  oscillator.start();
-
-  const ringOnce = () => {
-    if (context.state === 'suspended') void context.resume();
-    const now = context.currentTime;
-    gain.gain.cancelScheduledValues(now);
-    gain.gain.setValueAtTime(0, now);
-    gain.gain.linearRampToValueAtTime(0.035, now + 0.035);
-    gain.gain.setValueAtTime(0.035, now + 0.34);
-    gain.gain.linearRampToValueAtTime(0, now + 0.42);
-  };
-  ringOnce();
-  const interval = window.setInterval(ringOnce, 1_800);
-
-  return () => {
-    window.clearInterval(interval);
-    try {
-      oscillator.stop();
-    } catch {
-      // The oscillator may already have been stopped by the browser.
-    }
-    void context.close().catch(() => undefined);
-  };
-}
-
 function MessageBubble({
   message,
   own,
@@ -116,11 +73,6 @@ export default function AudioCallModal({
       audio.srcObject = null;
     };
   }, [call.remoteStream]);
-
-  useEffect(() => {
-    if (call.phase !== 'calling') return;
-    return startRingtone();
-  }, [call.callId, call.phase]);
 
   useEffect(() => {
     if (call.phase !== 'active' || call.startedAt === null) return;
