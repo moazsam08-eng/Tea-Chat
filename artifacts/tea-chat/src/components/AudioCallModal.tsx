@@ -98,17 +98,17 @@ export default function AudioCallModal({
   const status = isIncoming
     ? 'Incoming audio call'
     : isCalling
-      ? 'Calling…'
+      ? 'Callingâ¦'
       : isConnecting
-        ? 'Connecting…'
+        ? 'Connectingâ¦'
         : 'Connected';
 
   return (
-    <div className="audio-call-overlay" data-testid="dialog-audio-call">
+    <div className={`audio-call-overlay${isIncoming ? ' incoming' : ''}`} data-testid="dialog-audio-call">
       <section
         className={`audio-call-panel${call.chatOpen && isActive ? ' with-chat' : ''}`}
         role="dialog"
-        aria-modal="true"
+        aria-modal={isIncoming ? undefined : true}
         aria-labelledby="audio-call-title"
       >
         <audio ref={audioRef} autoPlay playsInline aria-label={`Audio from ${call.peer.name}`} />
@@ -146,7 +146,7 @@ export default function AudioCallModal({
               {!isActive && (
                 <p className="audio-call-caption">
                   {isIncoming
-                    ? 'Pick up when you’re ready.'
+                    ? 'Pick up when youâre ready.'
                     : isCalling
                       ? 'Your call is ringing through.'
                       : 'Setting up a private audio connection.'}
@@ -256,7 +256,7 @@ export default function AudioCallModal({
                   value={draft}
                   onChange={(event) => setDraft(event.target.value)}
                   maxLength={2_000}
-                  placeholder="Write a message…"
+                  placeholder="Write a messageâ¦"
                   aria-label="In-call message"
                   data-testid="input-in-call-message"
                 />
