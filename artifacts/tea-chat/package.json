@@ -75,6 +75,7 @@
     "zod": "catalog:"
   },
   "dependencies": {
+    "@breezystack/lamejs": "^1.2.7",
     "@supabase/supabase-js": "^2.49.1",
     "@stream-io/video-react-sdk": "^1.18.0",
     "stream-chat": "^9.15.0",

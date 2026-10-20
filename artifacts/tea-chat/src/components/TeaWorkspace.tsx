@@ -13,6 +13,7 @@ import {
   useChannelStateContext,
 } from 'stream-chat-react';
 import 'stream-chat-react/dist/css/v2/index.css';
+import { encodeToMp3 } from 'stream-chat-react/mp3-encoder';
 import {
   ArrowLeft,
   CircleAlert,
@@ -222,7 +223,7 @@ export function TeaWorkspace({ user, streamToken, supabase, onSignOut }: Workspa
                   const channelName = (channel.data as Record<string, unknown> | undefined)?.name;
                   const title = (typeof channelName === 'string' && channelName.trim() ? channelName.trim() : '') || Object.values(channel.state.members).filter((member) => member.user_id !== streamToken.userId).map((member) => member.user?.name || member.user_id).join(', ') || 'Conversation';
                   return <button key={channel.cid} type="button" onClick={() => { void selectSearchResult(channel); }} style={{ width: 'calc(100% - 18px)', margin: '2px 9px', border: 0, borderRadius: 10, background: activeChannel?.cid === channel.cid ? '#e8eee5' : 'transparent', padding: '12px', textAlign: 'left', color: 'var(--ink)' }} data-testid={`button-search-channel-${channel.id}`}><strong style={{ display: 'block', fontSize: 13 }}>{title}</strong><span style={{ color: '#828c83', fontSize: 11 }}>{channel.state.messages.at(-1)?.text || 'Open conversation'}</span></button>;
-                }) : <div style={{ padding: '14px 20px', color: '#879188', fontSize: 12 }} data-testid="status-search-empty">{client ? 'No matching conversations.' : 'Connecting to your conversations…'}</div>
+                }) : <div style={{ padding: '14px 20px', color: '#879188', fontSize: 12 }} data-testid="status-search-empty">{client ? 'No matching conversations.' : 'Connecting to your conversationsâ¦'}</div>
               ) : client ? <ChannelList filters={filters} sort={sort} options={options} /> : (
                 <div style={{ padding: 18 }} aria-label="Loading conversations" data-testid="status-channel-loading"><div style={{ height: 52, borderRadius: 10, background: '#eeeee7', marginBottom: 8 }} /><div style={{ height: 52, borderRadius: 10, background: '#eeeee7', marginBottom: 8 }} /><div style={{ height: 52, borderRadius: 10, background: '#eeeee7' }} /></div>
               )}
@@ -268,7 +269,7 @@ export function TeaWorkspace({ user, streamToken, supabase, onSignOut }: Workspa
         />
       )}
       {audioCall.call && (
-        <Suspense fallback={<div className="call-loading" role="status">Connecting your audio call…</div>}>
+        <Suspense fallback={<div className="call-loading" role="status">Connecting your audio callâ¦</div>}>
           <AudioCallModal
             call={audioCall.call}
             currentUserId={streamToken.userId}
@@ -282,7 +283,7 @@ export function TeaWorkspace({ user, streamToken, supabase, onSignOut }: Workspa
         </Suspense>
       )}
       {call && videoClient && (
-        <Suspense fallback={<div className="call-loading" role="status">Connecting your call…</div>}>
+        <Suspense fallback={<div className="call-loading" role="status">Connecting your callâ¦</div>}>
           <VideoCallModal
             call={call}
             client={videoClient}
@@ -304,6 +305,10 @@ function ChannelTools({ disabled, onCall }: { disabled: boolean; onCall: (channe
 
 function ConversationPanel({ disabled, onCall }: { disabled: boolean; onCall: (channel: StreamChannel, audioOnly: boolean) => void }) {
   const { channel } = useChannelStateContext();
+  const audioRecordingConfig = useMemo(
+    () => ({ transcoderConfig: { encoder: encodeToMp3 } }),
+    [],
+  );
   if (!channel) return (
     <div className="chat-empty-state" data-testid="empty-chat-selection">
       <div className="empty-note"><div className="cup-illustration"><Leaf size={27} strokeWidth={1.5} /></div><span className="eyebrow">A moment for yourself</span><h2>Pick up the conversation.</h2><p>Choose a chat from the list or start a new one. Your messages will be right here.</p></div>
@@ -316,7 +321,11 @@ function ConversationPanel({ disabled, onCall }: { disabled: boolean; onCall: (c
         <ChannelTools disabled={disabled} onCall={onCall} />
       </div>
       <MessageList />
-      <MessageInput />
+      <MessageInput
+        audioRecordingEnabled
+        audioRecordingConfig={audioRecordingConfig}
+        asyncMessagesMultiSendEnabled
+      />
     </Window>
     <Thread />
   </>;

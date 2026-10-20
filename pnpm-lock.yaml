@@ -412,6 +412,9 @@ importers:
 
   artifacts/tea-chat:
     dependencies:
+      '@breezystack/lamejs':
+        specifier: ^1.2.7
+        version: 1.2.7
       '@stream-io/video-react-sdk':
         specifier: ^1.18.0
         version: 1.43.4(react-dom@19.1.0(react@19.1.0))(react@19.1.0)(typescript@5.9.3)
@@ -423,7 +426,7 @@ importers:
         version: 9.54.0
       stream-chat-react:
         specifier: ^13.6.0
-        version: 13.14.6(@types/react@19.3.0)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)(stream-chat@9.54.0)(typescript@5.9.3)
+        version: 13.14.6(@breezystack/lamejs@1.2.7)(@types/react@19.3.0)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)(stream-chat@9.54.0)(typescript@5.9.3)
     devDependencies:
       '@hookform/resolvers':
         specifier: ^3.10.0
@@ -758,6 +761,9 @@ packages:
 
   '@braintree/sanitize-url@6.0.4':
     resolution: {integrity: sha512-s3jaWicZd0pkP0jf5ysyHUI/RE7MHos6qlToFcGWXVp+ykHOy77OUMrfbgJ9it2C5bow7OIQwYYaHjk9XlBQ2A==}
+
+  '@breezystack/lamejs@1.2.7':
+    resolution: {integrity: sha512-6wc7ck65ctA75Hq7FYHTtTvGnYs6msgdxiSUICQ+A01nVOWg6rqouZB8IdyteRlfpYYiFovkf67dIeOgWIUzTA==}
 
   '@commander-js/extra-typings@15.0.0':
     resolution: {integrity: sha512-yeJlba62xqmkgELUsn7356MEnzLLu/fw2x4lofFqGnXh6YysRdEs2BaLeLtg1+KU0AXvMeqQvTTp+3hBEBK+EA==}
@@ -3980,6 +3986,8 @@ snapshots:
 
   '@braintree/sanitize-url@6.0.4': {}
 
+  '@breezystack/lamejs@1.2.7': {}
+
   '@commander-js/extra-typings@15.0.0(commander@15.0.0)':
     dependencies:
       commander: 15.0.0
@@ -7084,7 +7092,7 @@ snapshots:
 
   statuses@2.0.2: {}
 
-  stream-chat-react@13.14.6(@types/react@19.3.0)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)(stream-chat@9.54.0)(typescript@5.9.3):
+  stream-chat-react@13.14.6(@breezystack/lamejs@1.2.7)(@types/react@19.3.0)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)(stream-chat@9.54.0)(typescript@5.9.3):
     dependencies:
       '@braintree/sanitize-url': 6.0.4
       '@floating-ui/react': 0.27.20(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
@@ -7117,6 +7125,7 @@ snapshots:
       unist-util-visit: 5.1.0
       use-sync-external-store: 1.7.0(react@19.1.0)
     optionalDependencies:
+      '@breezystack/lamejs': 1.2.7
       '@stream-io/transliterate': 1.5.5
     transitivePeerDependencies:
       - '@types/react'
