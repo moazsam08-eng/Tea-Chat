@@ -559,7 +559,7 @@ export function useAudioCall({ supabase, userId, displayName, image }: UseAudioC
       return;
     }
     if (signal.type === 'busy') {
-      terminateSession(session, { toastMessage: 'They’re already on another call.' });
+      terminateSession(session, { toastMessage: 'Theyâre already on another call.' });
       return;
     }
     if (signal.type === 'cancel') {
@@ -591,19 +591,19 @@ export function useAudioCall({ supabase, userId, displayName, image }: UseAudioC
 
   signalHandlerRef.current = (value) => { void handleSignal(value); };
 
-  async function startCall(peer: AudioCallPeer) {
+  async function startCall(peer: AudioCallPeer): Promise<string | null> {
     const currentUserId = userInfoRef.current.userId;
     if (!peer.id || peer.id === currentUserId || !isUuid(peer.id)) {
       notify('This conversation does not have a valid call recipient.', true);
-      return;
+      return null;
     }
     if (sessionRef.current) {
       notify('Finish the current call before starting another.');
-      return;
+      return null;
     }
     if (!inboxReadyRef.current) {
       notify('Audio calls need Supabase Realtime Broadcast. Apply supabase/audio-call-realtime.sql in Supabase SQL Editor, then refresh Tea Chat.', true);
-      return;
+      return null;
     }
 
     const normalizedPeer = {
@@ -617,10 +617,11 @@ export function useAudioCall({ supabase, userId, displayName, image }: UseAudioC
 
     try {
       const peerConnection = createPeerConnection(session);
-      if (!await addMicrophone(session, peerConnection) || !isCurrent(session)) return;
+      if (!await addMicrophone(session, peerConnection) || !isCurrent(session)) return null;
       const offer = await peerConnection.createOffer();
       await peerConnection.setLocalDescription(offer);
-      if (!isCurrent(session) || !peerConnection.localDescription) return;
+      if (!isCurrent(session)) return null;
+      if (!peerConnection.localDescription) throw new Error('Could not create an audio call offer.');
 
       const invite: AudioSignal = makeSignal(session, 'invite', {
         peer: {
@@ -631,7 +632,7 @@ export function useAudioCall({ supabase, userId, displayName, image }: UseAudioC
         offer: peerConnection.localDescription.toJSON(),
       });
       await sendToUser(normalizedPeer.id, invite);
-      if (!isCurrent(session)) return;
+      if (!isCurrent(session)) return null;
 
       session.localCandidatesReady = true;
       armTimeout(
@@ -641,12 +642,14 @@ export function useAudioCall({ supabase, userId, displayName, image }: UseAudioC
         { type: 'cancel' },
       );
       void flushLocalCandidates(session);
+      return session.callId;
     } catch (error) {
-      if (!isCurrent(session)) return;
+      if (!isCurrent(session)) return null;
       terminateSession(session, {
         notify: { type: 'cancel' },
         toastMessage: error instanceof Error ? error.message : 'Could not start the call.',
       });
+      return null;
     }
   }
 

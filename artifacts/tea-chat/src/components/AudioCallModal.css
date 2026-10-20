@@ -84,3 +84,25 @@
   .audio-call-actions.incoming { gap: 17px; }
   .audio-call-control { min-width: 72px; min-height: 72px; border-radius: 16px; }
 }
+
+
+/* Keep the incoming prompt visible without blocking the matching call card. */
+.audio-call-overlay.incoming { place-items: start center; padding: 12px; background: transparent; pointer-events: none; }
+.audio-call-overlay.incoming .audio-call-panel { width: min(100%, 420px); min-height: 0; pointer-events: auto; }
+.audio-call-overlay.incoming .audio-call-layout, .audio-call-overlay.incoming .audio-call-main { min-height: 0; }
+.audio-call-overlay.incoming .audio-call-main { padding: 22px 20px 18px; }
+.audio-call-overlay.incoming .audio-call-avatar { width: 72px; height: 72px; font-size: 26px; }
+.audio-call-overlay.incoming .audio-call-status { margin-top: 16px; }
+.audio-call-overlay.incoming .audio-call-actions { margin-top: 18px; }
+.audio-call-overlay.incoming .audio-call-control { min-width: 94px; min-height: 56px; flex-direction: row; gap: 8px; }
+.audio-call-overlay.incoming .audio-call-privacy { margin-top: 12px; }
+@media (max-width: 700px) {
+  .audio-call-overlay.incoming { padding: 8px; }
+  .audio-call-overlay.incoming .audio-call-panel { width: min(100%, 420px); min-height: 0; }
+  .audio-call-overlay.incoming .audio-call-layout, .audio-call-overlay.incoming .audio-call-main { min-height: 0; }
+  .audio-call-overlay.incoming .audio-call-main { padding: 18px 14px 14px; }
+  .audio-call-overlay.incoming .audio-call-avatar { width: 64px; height: 64px; font-size: 24px; }
+  .audio-call-overlay.incoming .audio-call-status { margin-top: 14px; }
+  .audio-call-overlay.incoming .audio-call-actions { margin-top: 15px; }
+  .audio-call-overlay.incoming .audio-call-privacy { margin-top: 10px; }
+}
