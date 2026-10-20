@@ -30,7 +30,7 @@ import {
 import type { Call, StreamVideoClient } from '@stream-io/video-react-sdk';
 import type { SupabaseClient, User } from '@supabase/supabase-js';
 import { PeoplePanel, type Person } from '@/components/PeoplePanel';
-import { TeaChatAttachment } from '@/components/TeaChatAttachment';
+import { CallHistoryActionsContext, TeaChatAttachment } from '@/components/TeaChatAttachment';
 import { useAudioCall } from '@/hooks/useAudioCall';
 import { toast } from '@/hooks/use-toast';
 import { ProfileSettingsModal } from '@/components/ProfileSettingsModal';
@@ -46,7 +46,7 @@ type WorkspaceProps = {
   onSignOut: () => void;
 };
 
-async function addCallHistoryEntry(channel: StreamChannel, mode: 'audio' | 'video') {
+async function addCallHistoryEntry(channel: StreamChannel, mode: 'audio' | 'video', callId?: string) {
   const title = mode === 'audio' ? 'Voice call' : 'Video call';
   try {
     await channel.sendMessage({
@@ -56,6 +56,7 @@ async function addCallHistoryEntry(channel: StreamChannel, mode: 'audio' | 'vide
         type: 'tea_call_log',
         title,
         tea_call_mode: mode,
+        ...(callId ? { tea_call_id: callId } : {}),
       } as StreamAttachment],
     });
   } catch (error) {
@@ -179,8 +180,8 @@ export function TeaWorkspace({ user, streamToken, supabase, onSignOut }: Workspa
       const peerUser = other.user;
       const peerName = typeof peerUser?.name === 'string' && peerUser.name.trim() ? peerUser.name.trim() : 'Tea Chat member';
       const peerImage = typeof peerUser?.image === 'string' ? peerUser.image : null;
-      await addCallHistoryEntry(sourceChannel, 'audio');
-      void audioCall.startCall({ id: other.user_id, name: peerName, image: peerImage });
+      const callId = await audioCall.startCall({ id: other.user_id, name: peerName, image: peerImage });
+      if (callId) await addCallHistoryEntry(sourceChannel, 'audio', callId);
       return;
     }
     if (!apiKey) return;
@@ -220,6 +221,13 @@ export function TeaWorkspace({ user, streamToken, supabase, onSignOut }: Workspa
   const displayName = profileName;
   const initials = displayName.slice(0, 1).toUpperCase() || 'T';
   const avatarUrl = profileImage;
+  const callHistoryActions = audioCall.call?.phase === 'incoming'
+    ? {
+        callId: audioCall.call.callId,
+        onAccept: () => { void audioCall.acceptCall(); },
+        onDecline: audioCall.rejectCall,
+      }
+    : null;
 
   const chatFrame = (
     <section className={`chat-frame${mobileOpen ? ' mobile-channel-open' : ''}`} data-testid="chat-workspace">
@@ -247,7 +255,7 @@ export function TeaWorkspace({ user, streamToken, supabase, onSignOut }: Workspa
                   const channelName = (channel.data as Record<string, unknown> | undefined)?.name;
                   const title = (typeof channelName === 'string' && channelName.trim() ? channelName.trim() : '') || Object.values(channel.state.members).filter((member) => member.user_id !== streamToken.userId).map((member) => member.user?.name || member.user_id).join(', ') || 'Conversation';
                   return <button key={channel.cid} type="button" onClick={() => { void selectSearchResult(channel); }} style={{ width: 'calc(100% - 18px)', margin: '2px 9px', border: 0, borderRadius: 10, background: activeChannel?.cid === channel.cid ? '#e8eee5' : 'transparent', padding: '12px', textAlign: 'left', color: 'var(--ink)' }} data-testid={`button-search-channel-${channel.id}`}><strong style={{ display: 'block', fontSize: 13 }}>{title}</strong><span style={{ color: '#828c83', fontSize: 11 }}>{channel.state.messages.at(-1)?.text || 'Open conversation'}</span></button>;
-                }) : <div style={{ padding: '14px 20px', color: '#879188', fontSize: 12 }} data-testid="status-search-empty">{client ? 'No matching conversations.' : 'Connecting to your conversationsâ¦'}</div>
+                }) : <div style={{ padding: '14px 20px', color: '#879188', fontSize: 12 }} data-testid="status-search-empty">{client ? 'No matching conversations.' : 'Connecting to your conversationsÃ¢ÂÂ¦'}</div>
               ) : client ? <ChannelList filters={filters} sort={sort} options={options} /> : (
                 <div style={{ padding: 18 }} aria-label="Loading conversations" data-testid="status-channel-loading"><div style={{ height: 52, borderRadius: 10, background: '#eeeee7', marginBottom: 8 }} /><div style={{ height: 52, borderRadius: 10, background: '#eeeee7', marginBottom: 8 }} /><div style={{ height: 52, borderRadius: 10, background: '#eeeee7' }} /></div>
               )}
@@ -281,7 +289,11 @@ export function TeaWorkspace({ user, streamToken, supabase, onSignOut }: Workspa
 
   return (
     <main className="tea-app app-frame" data-testid="screen-workspace">
-      {client ? <Chat client={client} theme={theme === 'dark' ? 'str-chat__theme-dark' : 'str-chat__theme-light'}>{chatFrame}</Chat> : chatFrame}
+      {client ? (
+        <CallHistoryActionsContext.Provider value={callHistoryActions}>
+          <Chat client={client} theme={theme === 'dark' ? 'str-chat__theme-dark' : 'str-chat__theme-light'}>{chatFrame}</Chat>
+        </CallHistoryActionsContext.Provider>
+      ) : chatFrame}
       {profileOpen && (
         <ProfileSettingsModal
           userId={streamToken.userId}
@@ -293,7 +305,7 @@ export function TeaWorkspace({ user, streamToken, supabase, onSignOut }: Workspa
         />
       )}
       {audioCall.call && (
-        <Suspense fallback={<div className="call-loading" role="status">Connecting your audio callâ¦</div>}>
+        <Suspense fallback={<div className="call-loading" role="status">Connecting your audio callÃ¢ÂÂ¦</div>}>
           <AudioCallModal
             call={audioCall.call}
             currentUserId={streamToken.userId}
@@ -307,7 +319,7 @@ export function TeaWorkspace({ user, streamToken, supabase, onSignOut }: Workspa
         </Suspense>
       )}
       {call && videoClient && (
-        <Suspense fallback={<div className="call-loading" role="status">Connecting your callâ¦</div>}>
+        <Suspense fallback={<div className="call-loading" role="status">Connecting your callÃ¢ÂÂ¦</div>}>
           <VideoCallModal
             call={call}
             client={videoClient}

@@ -392,9 +392,18 @@
 .tea-call-history__copy { min-width: 0; display: grid; gap: 3px; }
 .tea-call-history__copy strong { font-size: 12px; font-weight: 650; }
 .tea-call-history__copy span { color: #7a887b; font-size: 10px; }
+.tea-call-history__actions { display: flex; gap: 6px; margin-top: 6px; }
+.tea-call-history__actions button { min-height: 29px; flex: 1; border: 1px solid #d5e0d1; border-radius: 8px; padding: 0 9px; color: #496352; background: #fffefa; font: inherit; font-size: 10px; font-weight: 700; cursor: pointer; }
+.tea-call-history__actions button.accept { border-color: #557960; color: #fffdf6; background: #557960; }
+.tea-call-history__actions button.decline { border-color: #c85b50; color: #fff; background: #c85b50; }
+.tea-call-history__actions button:hover { filter: brightness(.95); }
+.tea-call-history__actions button:focus-visible { outline: 3px solid rgba(91,132,100,.42); outline-offset: 2px; }
 .chat-main .str-chat__message--me .tea-call-history { border-color: #d4e2d1; background: #e4eddf; }
 .dark .tea-voice-note, .dark .tea-call-history { border-color: #35483a; color: #e2ebe2; background: #202d25; }
 .dark .tea-voice-note__play, .dark .tea-call-history__icon { color: #17211b; background: #a7c7ab; }
+.dark .tea-call-history__actions button { border-color: #35483a; color: #e2ebe2; background: #17211b; }
+.dark .tea-call-history__actions button.accept { border-color: #557960; color: #fff; background: #557960; }
+.dark .tea-call-history__actions button.decline { border-color: #bd554b; color: #fff; background: #bd554b; }
 .dark .tea-voice-note__wave span { background: #586d5d; }
 .dark .tea-voice-note__wave span.played { background: #a7c7ab; }
 .dark .tea-voice-note__meta, .dark .tea-voice-note__meta time, .dark .tea-call-history__copy span { color: #a6b6a8; }

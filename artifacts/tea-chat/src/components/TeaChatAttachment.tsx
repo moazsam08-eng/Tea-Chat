@@ -1,4 +1,4 @@
-import { useRef, useState, type ComponentProps } from 'react';
+import { createContext, useContext, useRef, useState, type ComponentProps } from 'react';
 import type { Attachment as StreamAttachment } from 'stream-chat';
 import {
   Attachment as StreamAttachmentRenderer,
@@ -11,7 +11,16 @@ import { Pause, Phone, Play, Video } from 'lucide-react';
 type CallMode = 'audio' | 'video';
 type CallHistoryAttachment = StreamAttachment & {
   tea_call_mode?: CallMode;
+  tea_call_id?: string;
 };
+
+export type CallHistoryActions = {
+  callId: string;
+  onAccept: () => void;
+  onDecline: () => void;
+} | null;
+
+export const CallHistoryActionsContext = createContext<CallHistoryActions>(null);
 
 const FALLBACK_WAVEFORM = [17, 32, 24, 44, 28, 51, 35, 22, 42, 30, 56, 25, 39, 19, 47, 33, 23, 53, 29, 40, 18, 34, 48, 25, 39, 21, 45, 31, 54, 27, 38, 20, 46, 30, 55, 24, 42, 18, 34, 49, 27, 40, 21, 51, 31, 43];
 
@@ -163,12 +172,20 @@ function isCallHistoryAttachment(attachment: unknown): attachment is CallHistory
 function CallHistoryCard({ attachment }: { attachment: CallHistoryAttachment }) {
   const mode: CallMode = attachment.tea_call_mode === 'video' ? 'video' : 'audio';
   const Icon = mode === 'video' ? Video : Phone;
+  const actions = useContext(CallHistoryActionsContext);
+  const incomingActions = actions && actions.callId === attachment.tea_call_id ? actions : null;
   return (
-    <div className="tea-call-history" data-testid="tea-call-history">
+    <div className={`tea-call-history${incomingActions ? ' tea-call-history--incoming' : ''}`} data-testid="tea-call-history">
       <span className="tea-call-history__icon"><Icon size={16} /></span>
       <span className="tea-call-history__copy">
         <strong>{mode === 'video' ? 'Video call' : 'Voice call'}</strong>
-        <span>Call request</span>
+        <span>{incomingActions ? 'Incoming call' : 'Call request'}</span>
+        {incomingActions && (
+          <span className="tea-call-history__actions" role="group" aria-label="Incoming audio call actions">
+            <button type="button" className="accept" onClick={incomingActions.onAccept} aria-label="Answer incoming voice call" data-testid="button-answer-call-history">Answer</button>
+            <button type="button" className="decline" onClick={incomingActions.onDecline} aria-label="Decline incoming voice call" data-testid="button-decline-call-history">Decline</button>
+          </span>
+        )}
       </span>
     </div>
   );
