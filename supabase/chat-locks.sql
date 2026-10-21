@@ -67,7 +67,7 @@ begin
   if v_user_id is null then
     raise exception 'Sign in to manage chat locks.' using errcode = '42501';
   end if;
-  if p_code is null or p_code_type not in ('numbers', 'letters', 'both') then
+  if p_code is null or p_code_type is null or p_code_type not in ('numbers', 'letters', 'both') then
     raise exception 'Choose a valid passcode type and passcode.' using errcode = '22023';
   end if;
   if (p_code_type = 'numbers' and p_code !~ '^[0-9]{4,32}$')

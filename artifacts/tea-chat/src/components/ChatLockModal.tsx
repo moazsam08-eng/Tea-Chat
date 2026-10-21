@@ -11,6 +11,7 @@ type ChatLockModalProps = {
   channelCid: string;
   channelTitle: string;
   email: string;
+  hasPasscode: boolean;
   supabase: SupabaseClient;
   onClose: () => void;
   onLocked: (channelCid: string) => void;
@@ -45,6 +46,7 @@ export function ChatLockModal({
   channelCid,
   channelTitle,
   email: accountEmail,
+  hasPasscode,
   supabase,
   onClose,
   onLocked,
@@ -82,14 +84,16 @@ export function ChatLockModal({
     event.preventDefault();
     setError('');
     setMessage('');
-    if (!validateNewCode()) return;
+    if (!hasPasscode && !validateNewCode()) return;
     setBusy(true);
     try {
-      const { error: codeError } = await supabase.rpc('set_chat_lock_code', {
-        p_code: passcode,
-        p_code_type: codeType,
-      });
-      if (codeError) throw new Error(readableLockError(codeError.message));
+      if (!hasPasscode) {
+        const { error: codeError } = await supabase.rpc('set_chat_lock_code', {
+          p_code: passcode,
+          p_code_type: codeType,
+        });
+        if (codeError) throw new Error(readableLockError(codeError.message));
+      }
       const { error: lockError } = await supabase.rpc('add_chat_lock', {
         p_channel_cid: channelCid,
       });
@@ -212,7 +216,7 @@ export function ChatLockModal({
     : screen === 'send-code' || screen === 'verify-code'
       ? 'Recover your lock code'
       : isSetup
-        ? 'Create your lock code'
+        ? hasPasscode ? 'Lock this chat' : 'Create your lock code'
         : mode === 'remove'
           ? 'Remove this lock'
           : 'This chat is locked';
@@ -271,14 +275,18 @@ export function ChatLockModal({
 
         {screen === 'form' && isSetup && (
           <form onSubmit={(event) => { void submitSetup(event); }}>
-            <p className="lock-modal-help">This one passcode will protect every chat you lock. Use at least 4 characters and choose its format.</p>
-            <CodeTypePicker codeType={codeType} onChange={setCodeType} />
-            <NewCodeFields codeType={codeType} passcode={passcode} confirmPasscode={confirmPasscode} onPasscodeChange={setPasscode} onConfirmChange={setConfirmPasscode} />
+            <p className="lock-modal-help">{hasPasscode ? 'Your existing passcode will protect this conversation too.' : 'Create one passcode for every chat you lock. Use at least 4 characters and choose its format.'}</p>
+            {!hasPasscode && (
+              <>
+                <CodeTypePicker codeType={codeType} onChange={setCodeType} />
+                <NewCodeFields codeType={codeType} passcode={passcode} confirmPasscode={confirmPasscode} onPasscodeChange={setPasscode} onConfirmChange={setConfirmPasscode} />
+              </>
+            )}
             {error && <p className="lock-modal-error" role="alert">{error}</p>}
             <div className="profile-modal-actions lock-modal-actions">
               <button className="secondary-action" type="button" onClick={onClose} disabled={busy}>Cancel</button>
               <button className="primary-action" type="submit" disabled={busy} data-testid="button-create-chat-lock">
-                {busy ? <><LoaderCircle size={15} className="animate-spin" />Locking…</> : <><LockKeyhole size={15} />Create code and lock chat</>}
+                {busy ? <><LoaderCircle size={15} className="animate-spin" />Locking…</> : <><LockKeyhole size={15} />{hasPasscode ? 'Lock chat' : 'Create code and lock chat'}</>}
               </button>
             </div>
           </form>
