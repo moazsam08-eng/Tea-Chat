@@ -14,6 +14,8 @@ tags:
     description: Secure Stream Chat token operations
   - name: people
     description: Tea Chat member discovery and profile management
+  - name: assistant
+    description: Private multilingual AI conversations
 paths:
   /healthz:
     get:
@@ -72,6 +74,66 @@ paths:
                 $ref: "#/components/schemas/Profile"
         "401":
           description: Supabase session is missing or invalid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /assistant/conversations:
+    post:
+      operationId: createAssistantConversation
+      tags: [assistant]
+      summary: Create a private Tea AI conversation
+      description: Creates a Stream Chat channel shared only by the signed-in member and Tea AI.
+      security:
+        - BearerAuth: []
+      responses:
+        "201":
+          description: Created AI conversation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AssistantConversation"
+        "401":
+          description: Supabase session is missing or invalid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /assistant/conversations/{channelId}/respond:
+    post:
+      operationId: generateAssistantReply
+      tags: [assistant]
+      summary: Stream a multilingual AI reply
+      description: Sends the latest user message and optional image to Groq, then saves the assistant reply to the private Stream conversation.
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: channelId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AssistantReplyRequest"
+      responses:
+        "200":
+          description: Server-sent events containing streamed text deltas and a final completion event
+          content:
+            text/event-stream:
+              schema:
+                type: string
+        "401":
+          description: Supabase session is missing or invalid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "429":
+          description: Per-user request limit reached
           content:
             application/json:
               schema:
@@ -177,6 +239,25 @@ components:
             id:
               type: string
           required: [id]
+    AssistantConversation:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+      required: [id, title]
+    AssistantReplyRequest:
+      type: object
+      properties:
+        messageId:
+          type: string
+          maxLength: 64
+        imageDataUrl:
+          type: string
+          maxLength: 7100000
+          description: Optional JPEG, PNG, or WebP photo encoded as a data URL; max upload size is 5 MB.
+      required: [messageId]
     ApiError:
       type: object
       properties:
