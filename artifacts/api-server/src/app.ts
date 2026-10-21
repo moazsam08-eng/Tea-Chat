@@ -26,6 +26,7 @@ app.use(
   }),
 );
 app.use(cors());
+app.use("/api/assistant", express.json({ limit: "8mb" }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
