@@ -433,3 +433,24 @@
   .tea-voice-note__play { width: 36px; height: 36px; }
   .tea-call-history { width: min(100%, 270px); }
 }
+
+
+.conversation-list { display: flex; flex-direction: column; gap: 3px; padding: 0 9px 12px; }
+.conversation-preview { width: 100%; min-width: 0; display: flex; align-items: center; gap: 10px; padding: 10px; border: 1px solid transparent; border-radius: 10px; color: var(--ink); background: transparent; text-align: left; transition: background .16s ease, border-color .16s ease; }
+.conversation-preview:hover { background: #f0f0e9; }
+.conversation-preview.is-active { border-color: #e1e7dc; background: #e8eee5; }
+.conversation-preview:focus-visible { outline: 3px solid rgba(71,108,90,.34); outline-offset: 2px; }
+.conversation-preview-avatar { width: 40px; height: 40px; flex: 0 0 auto; display: grid; place-items: center; overflow: hidden; border-radius: 50%; color: #41634d; background: #dce8dc; font-size: 13px; font-weight: 700; }
+.conversation-preview-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.conversation-preview-copy { min-width: 0; flex: 1; display: grid; gap: 4px; }
+.conversation-preview-name, .conversation-preview-message { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.conversation-preview-name { color: var(--ink); font-size: 12px; font-weight: 700; }
+.conversation-preview-message { color: #828c83; font-size: 11px; }
+.conversation-list-empty, .conversation-list-error { margin: 12px 17px; color: #879188; font-size: 11px; line-height: 1.6; }
+.conversation-list-error { color: #934d3e; }
+.conversation-list-error .text-button { display: block; margin-top: 6px; padding: 0; }
+.dark .conversation-preview:hover { background: #202d25; }
+.dark .conversation-preview.is-active { border-color: #35483a; background: #293a2e; }
+.dark .conversation-preview-avatar { color: #d4e7d5; background: #344b39; }
+.dark .conversation-preview-message, .dark .conversation-list-empty { color: var(--muted-ink); }
+.dark .conversation-list-error { color: #f1b8a5; }
