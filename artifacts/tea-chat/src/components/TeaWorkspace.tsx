@@ -35,7 +35,6 @@ import { useAudioCall } from '@/hooks/useAudioCall';
 import { toast } from '@/hooks/use-toast';
 import { ProfileSettingsModal } from '@/components/ProfileSettingsModal';
 import { useTheme } from '@/components/ThemeContext';
-import { AssistantChat } from '@/components/AssistantChat';
 
 const VideoCallModal = lazy(() => import('./VideoCallModal'));
 const AudioCallModal = lazy(() => import('./AudioCallModal'));
@@ -128,7 +127,7 @@ export function TeaWorkspace({ user, streamToken, supabase, onSignOut }: Workspa
     let cancelled = false;
     const timeout = window.setTimeout(() => {
       void client.queryChannels(
-        { type: 'messaging', members: { $in: [streamToken.userId] }, ai_assistant: { $ne: true }, name: { $autocomplete: search.trim() } },
+        { type: 'messaging', members: { $in: [streamToken.userId] }, name: { $autocomplete: search.trim() } },
         { last_message_at: -1 },
         { limit: 15, state: true, watch: false },
       ).then((channels) => {
@@ -216,7 +215,7 @@ export function TeaWorkspace({ user, streamToken, supabase, onSignOut }: Workspa
     }
   }
 
-  const filters = useMemo(() => ({ type: 'messaging', members: { $in: [streamToken.userId] }, ai_assistant: { $ne: true } }), [streamToken.userId]);
+  const filters = useMemo(() => ({ type: 'messaging', members: { $in: [streamToken.userId] } }), [streamToken.userId]);
   const sort = useMemo(() => ({ last_message_at: -1 as const }), []);
   const options = useMemo(() => ({ state: true, presence: true, limit: 25 }), []);
   const displayName = profileName;
@@ -295,7 +294,6 @@ export function TeaWorkspace({ user, streamToken, supabase, onSignOut }: Workspa
           <Chat client={client} theme={theme === 'dark' ? 'str-chat__theme-dark' : 'str-chat__theme-light'}>{chatFrame}</Chat>
         </CallHistoryActionsContext.Provider>
       ) : chatFrame}
-      <AssistantChat client={client} userId={streamToken.userId} supabase={supabase} theme={theme} />
       {profileOpen && (
         <ProfileSettingsModal
           userId={streamToken.userId}
