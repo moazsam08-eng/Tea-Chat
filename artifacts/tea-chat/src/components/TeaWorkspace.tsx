@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { StreamChat, type Attachment as StreamAttachment, type Channel as StreamChannel } from 'stream-chat';
 import type { StreamToken } from '@workspace/api-client-react';
 import {
