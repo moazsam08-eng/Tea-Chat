@@ -12,9 +12,8 @@ Tea Chat is a responsive, tea-inspired messaging app for real conversations, bui
 - `pnpm run build` — typecheck + build all packages
 - `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
 - `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
-- Required environment variable names: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_STREAM_API_KEY`, `STREAM_API_SECRET`, `GROQ_API_KEY`
-- Optional: `GROQ_MODEL` (defaults to `qwen/qwen3.8-27b`).
-- Keep `STREAM_API_SECRET` and `GROQ_API_KEY` server-only. Only the Supabase anon key and Stream public API key belong in the browser.
+- Required environment variable names: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_STREAM_API_KEY`, `STREAM_API_SECRET`
+- Keep `STREAM_API_SECRET` server-only. Only the Supabase anon key and Stream public API key belong in the browser.
 
 ## Stack
 
@@ -32,7 +31,6 @@ Tea Chat is a responsive, tea-inspired messaging app for real conversations, bui
 
 - `artifacts/tea-chat` — Tea Chat web app, auth screens, workspace, and theme
 - `artifacts/api-server/src/routes/stream.ts` — verifies Supabase sessions and issues Stream tokens
-- `artifacts/api-server/src/routes/assistant.ts` — private AI conversations and streamed Groq responses
 - `lib/api-spec/openapi.yaml` — source of truth for the Stream token API contract
 - `artifacts/tea-chat/src/index.css` — app theme and responsive layout
 - `artifacts/tea-chat/src/components/PeoplePanel.tsx` — member directory, friend requests, and friend list
@@ -47,7 +45,7 @@ Tea Chat is a responsive, tea-inspired messaging app for real conversations, bui
 
 ## Product
 
-Tea Chat provides real Stream conversations with search, threads, reactions, attachments, audio/video calls, and a private multilingual AI assistant with photo understanding. Members can edit their display name and profile photo, discover other members, and send or respond to friend requests. Email OTP and Google OAuth are the supported sign-in methods.
+Tea Chat provides real Stream conversations with search, threads, reactions, attachments, and audio/video calls. Members can edit their display name and profile photo, discover other members, and send or respond to friend requests. Email OTP and Google OAuth are the supported sign-in methods.
 
 ## User preferences
 
