@@ -4,7 +4,6 @@ import type { StreamToken } from '@workspace/api-client-react';
 import {
   Channel,
   ChannelHeader,
-  ChannelList,
   Chat,
   MessageInput,
   MessageList,
@@ -68,6 +67,30 @@ async function addCallHistoryEntry(channel: StreamChannel, mode: 'audio' | 'vide
   }
 }
 
+function getConversationTitle(channel: StreamChannel, currentUserId: string) {
+  const customName = (channel.data as Record<string, unknown> | undefined)?.name;
+  if (typeof customName === 'string' && customName.trim()) return customName.trim();
+  const names = Object.values(channel.state.members)
+    .filter((member) => member.user_id !== currentUserId)
+    .map((member) => {
+      const name = member.user?.name;
+      return typeof name === 'string' && name.trim() ? name.trim() : 'Tea Chat member';
+    });
+  return names.length ? names.join(', ') : 'Conversation';
+}
+
+function getConversationImage(channel: StreamChannel, currentUserId: string) {
+  const otherMember = Object.values(channel.state.members).find((member) => member.user_id !== currentUserId);
+  return typeof otherMember?.user?.image === 'string' ? otherMember.user.image : null;
+}
+
+function getConversationPreview(channel: StreamChannel) {
+  const latestMessage = channel.state.messages.at(-1);
+  if (typeof latestMessage?.text === 'string' && latestMessage.text.trim()) return latestMessage.text.trim();
+  if (latestMessage?.attachments?.length) return 'Sent an attachment';
+  return 'Start a conversation';
+}
+
 export function TeaWorkspace({ user, streamToken, supabase, onSignOut }: WorkspaceProps) {
   const apiKey = import.meta.env.VITE_STREAM_API_KEY as string | undefined;
   const { theme, toggleTheme } = useTheme();
@@ -80,7 +103,9 @@ export function TeaWorkspace({ user, streamToken, supabase, onSignOut }: Workspa
   const [connectionError, setConnectionError] = useState('');
   const [connectionAttempt, setConnectionAttempt] = useState(0);
   const [search, setSearch] = useState('');
-  const [results, setResults] = useState<StreamChannel[]>([]);
+  const [conversations, setConversations] = useState<StreamChannel[]>([]);
+  const [conversationsLoading, setConversationsLoading] = useState(false);
+  const [conversationsError, setConversationsError] = useState('');
   const [activeChannel, setActiveChannel] = useState<StreamChannel | null>(null);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [peopleOpen, setPeopleOpen] = useState(false);
@@ -119,37 +144,67 @@ export function TeaWorkspace({ user, streamToken, supabase, onSignOut }: Workspa
     };
   }, [apiKey, streamToken, connectionAttempt]);
 
+  const loadConversations = useCallback(async (showLoading = true) => {
+    if (!client) return;
+    if (showLoading) {
+      setConversationsLoading(true);
+      setConversationsError('');
+    }
+    try {
+      const channels = await client.queryChannels(
+        { type: 'messaging', members: { $in: [streamToken.userId] } },
+        { last_message_at: -1 },
+        { limit: 25, state: true, presence: true, watch: true, message_limit: 1 },
+      );
+      setConversations(channels);
+      setConversationsError('');
+    } catch (error: unknown) {
+      setConversationsError(error instanceof Error ? error.message : 'Could not load your conversations. Please try again.');
+    } finally {
+      if (showLoading) setConversationsLoading(false);
+    }
+  }, [client, streamToken.userId]);
+
   useEffect(() => {
-    if (!client || !search.trim()) {
-      setResults([]);
+    if (!client) {
+      setConversations([]);
+      setConversationsLoading(false);
       return;
     }
-    let cancelled = false;
-    const timeout = window.setTimeout(() => {
-      void client.queryChannels(
-        { type: 'messaging', members: { $in: [streamToken.userId] }, name: { $autocomplete: search.trim() } },
-        { last_message_at: -1 },
-        { limit: 15, state: true, watch: false },
-      ).then((channels) => {
-        if (!cancelled) setResults(channels);
-      }).catch((error: unknown) => {
-        if (!cancelled) setConnectionError(error instanceof Error ? error.message : 'Channel search is unavailable.');
-      });
-    }, 240);
-    return () => {
-      cancelled = true;
-      window.clearTimeout(timeout);
+    void loadConversations();
+  }, [client, loadConversations]);
+
+  useEffect(() => {
+    if (!client) return;
+    let refreshTimer: number | undefined;
+    const refresh = () => {
+      if (refreshTimer !== undefined) window.clearTimeout(refreshTimer);
+      refreshTimer = window.setTimeout(() => { void loadConversations(false); }, 200);
     };
-  }, [client, search, streamToken.userId]);
+    const subscriptions = [
+      client.on('message.new', refresh),
+      client.on('notification.message_new', refresh),
+      client.on('notification.added_to_channel', refresh),
+    ];
+    return () => {
+      if (refreshTimer !== undefined) window.clearTimeout(refreshTimer);
+      subscriptions.forEach((subscription) => subscription.unsubscribe());
+    };
+  }, [client, loadConversations]);
 
   useEffect(() => () => {
     void videoClient?.disconnectUser().catch(() => undefined);
   }, [videoClient]);
 
-  async function selectSearchResult(channel: StreamChannel) {
-    await channel.watch();
-    setActiveChannel(channel);
-    setMobileOpen(true);
+  async function selectConversation(channel: StreamChannel) {
+    try {
+      await channel.watch();
+      setActiveChannel(channel);
+      setMobileOpen(true);
+      setSearch('');
+    } catch (error) {
+      setConnectionError(error instanceof Error ? error.message : 'Could not open this conversation.');
+    }
   }
 
   async function startChat(person: Person) {
@@ -158,6 +213,7 @@ export function TeaWorkspace({ user, streamToken, supabase, onSignOut }: Workspa
     try {
       const channel = client.channel('messaging', { members: [streamToken.userId, person.id] });
       await channel.watch();
+      setConversations((current) => [channel, ...current.filter((item) => item.cid !== channel.cid)]);
       setActiveChannel(channel);
       setMobileOpen(true);
       setPeopleOpen(false);
@@ -215,9 +271,6 @@ export function TeaWorkspace({ user, streamToken, supabase, onSignOut }: Workspa
     }
   }
 
-  const filters = useMemo(() => ({ type: 'messaging', members: { $in: [streamToken.userId] } }), [streamToken.userId]);
-  const sort = useMemo(() => ({ last_message_at: -1 as const }), []);
-  const options = useMemo(() => ({ state: true, presence: true, limit: 25 }), []);
   const displayName = profileName;
   const initials = displayName.slice(0, 1).toUpperCase() || 'T';
   const avatarUrl = profileImage;
@@ -228,6 +281,15 @@ export function TeaWorkspace({ user, streamToken, supabase, onSignOut }: Workspa
         onDecline: audioCall.rejectCall,
       }
     : null;
+
+  const visibleConversations = useMemo(() => {
+    const query = search.trim().toLocaleLowerCase();
+    if (!query) return conversations;
+    return conversations.filter((channel) =>
+      getConversationTitle(channel, streamToken.userId).toLocaleLowerCase().includes(query) ||
+      getConversationPreview(channel).toLocaleLowerCase().includes(query),
+    );
+  }, [conversations, search, streamToken.userId]);
 
   const chatFrame = (
     <section className={`chat-frame${mobileOpen ? ' mobile-channel-open' : ''}`} data-testid="chat-workspace">
@@ -249,15 +311,28 @@ export function TeaWorkspace({ user, streamToken, supabase, onSignOut }: Workspa
         ) : (
           <>
             <div className="sidebar-label">{search.trim() ? 'Matching conversations' : 'Your conversations'}</div>
-            <div className="channel-list-shell" onClick={() => { setMobileOpen(true); if (!search.trim()) setActiveChannel(null); }} data-testid="list-conversations">
-              {search.trim() ? (
-                results.length ? results.map((channel) => {
-                  const channelName = (channel.data as Record<string, unknown> | undefined)?.name;
-                  const title = (typeof channelName === 'string' && channelName.trim() ? channelName.trim() : '') || Object.values(channel.state.members).filter((member) => member.user_id !== streamToken.userId).map((member) => member.user?.name || member.user_id).join(', ') || 'Conversation';
-                  return <button key={channel.cid} type="button" onClick={() => { void selectSearchResult(channel); }} style={{ width: 'calc(100% - 18px)', margin: '2px 9px', border: 0, borderRadius: 10, background: activeChannel?.cid === channel.cid ? '#e8eee5' : 'transparent', padding: '12px', textAlign: 'left', color: 'var(--ink)' }} data-testid={`button-search-channel-${channel.id}`}><strong style={{ display: 'block', fontSize: 13 }}>{title}</strong><span style={{ color: '#828c83', fontSize: 11 }}>{channel.state.messages.at(-1)?.text || 'Open conversation'}</span></button>;
-                }) : <div style={{ padding: '14px 20px', color: '#879188', fontSize: 12 }} data-testid="status-search-empty">{client ? 'No matching conversations.' : 'Connecting to your conversationsÃ¢ÂÂ¦'}</div>
-              ) : client ? <ChannelList filters={filters} sort={sort} options={options} /> : (
-                <div style={{ padding: 18 }} aria-label="Loading conversations" data-testid="status-channel-loading"><div style={{ height: 52, borderRadius: 10, background: '#eeeee7', marginBottom: 8 }} /><div style={{ height: 52, borderRadius: 10, background: '#eeeee7', marginBottom: 8 }} /><div style={{ height: 52, borderRadius: 10, background: '#eeeee7' }} /></div>
+            <div className="channel-list-shell" data-testid="list-conversations" aria-live="polite" aria-busy={!client || conversationsLoading}>
+              {!client || conversationsLoading ? (
+                <div style={{ padding: 18 }} role="status" aria-label="Loading conversations" data-testid="status-channel-loading"><div style={{ height: 52, borderRadius: 10, background: '#eeeee7', marginBottom: 8 }} /><div style={{ height: 52, borderRadius: 10, background: '#eeeee7', marginBottom: 8 }} /><div style={{ height: 52, borderRadius: 10, background: '#eeeee7' }} /></div>
+              ) : conversationsError ? (
+                <div className="conversation-list-error" role="alert" data-testid="status-conversations-error">{conversationsError}<button className="text-button" type="button" onClick={() => { void loadConversations(); }} data-testid="button-retry-conversations">Try again</button></div>
+              ) : visibleConversations.length ? (
+                <div className="conversation-list">
+                  {visibleConversations.map((channel) => {
+                    const title = getConversationTitle(channel, streamToken.userId);
+                    const image = getConversationImage(channel, streamToken.userId);
+                    const preview = getConversationPreview(channel);
+                    const selected = activeChannel?.cid === channel.cid;
+                    return (
+                      <button key={channel.cid} className={'conversation-preview' + (selected ? ' is-active' : '')} type="button" onClick={() => { void selectConversation(channel); }} aria-pressed={selected} aria-label={'Open conversation with ' + title} data-testid="button-open-conversation">
+                        <span className="conversation-preview-avatar">{image ? <img src={image} alt="" /> : <span>{title.slice(0, 1).toUpperCase() || 'T'}</span>}</span>
+                        <span className="conversation-preview-copy"><strong className="conversation-preview-name">{title}</strong><span className="conversation-preview-message">{preview}</span></span>
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="conversation-list-empty" data-testid={search.trim() ? 'status-search-empty' : 'status-conversations-empty'}>{search.trim() ? 'No conversations match “' + search.trim() + '”.' : 'No conversations yet. Start one from Find people.'}</div>
               )}
             </div>
           </>
