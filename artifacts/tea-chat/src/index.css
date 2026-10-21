@@ -454,3 +454,26 @@
 .dark .conversation-preview-avatar { color: #d4e7d5; background: #344b39; }
 .dark .conversation-preview-message, .dark .conversation-list-empty { color: var(--muted-ink); }
 .dark .conversation-list-error { color: #f1b8a5; }
+
+
+.conversation-row { display: flex; align-items: center; gap: 4px; min-width: 0; }
+.conversation-row .conversation-preview { width: auto; min-width: 0; flex: 1; }
+.conversation-lock-action { width: 32px; height: 32px; flex: 0 0 32px; display: grid; place-items: center; border: 1px solid transparent; border-radius: 8px; color: var(--muted-ink); background: transparent; }
+.conversation-lock-action:hover, .conversation-lock-action:focus-visible { border-color: var(--line); color: var(--leaf-deep); background: var(--paper-deep); }
+.lock-modal-description { margin: 7px 0 0; color: var(--muted-ink); font-size: 12px; line-height: 1.4; }
+.lock-modal-help { margin: 0 0 16px; color: var(--muted-ink); font-size: 12px; line-height: 1.6; }
+.lock-modal-error, .lock-modal-message { margin: 12px 0 0; padding: 10px; border-radius: 8px; font-size: 11px; line-height: 1.5; }
+.lock-modal-error { color: #934d3e; background: #f8e9e3; }
+.lock-modal-message { color: #41634d; background: #e8eee5; }
+.lock-code-type-picker { min-width: 0; margin: 0 0 15px; padding: 0; border: 0; }
+.lock-code-type-options { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin-top: 7px; }
+.lock-code-type { min-height: 34px; border: 1px solid var(--line); border-radius: 8px; color: var(--muted-ink); background: var(--paper); font: inherit; font-size: 11px; font-weight: 650; }
+.lock-code-type[aria-pressed="true"] { border-color: var(--leaf-deep); color: var(--leaf-deep); background: var(--paper-deep); }
+.lock-code-hint { display: block; margin-top: 6px; color: var(--muted-ink); font-size: 10px; }
+.lock-new-code-fields { display: grid; gap: 8px; }
+.lock-modal-link { display: block; margin: 14px auto 0; border: 0; color: var(--leaf-deep); background: transparent; font-size: 11px; font-weight: 650; text-decoration: underline; text-underline-offset: 3px; }
+.lock-modal-link:disabled { opacity: .55; }
+.dark .lock-modal-error { color: #f1b8a5; background: #412823; }
+.dark .lock-modal-message { color: #c6e0c8; background: #263a2d; }
+.dark .lock-code-type { border-color: var(--line); color: var(--muted-ink); background: #17211b; }
+.dark .lock-code-type[aria-pressed="true"] { color: var(--leaf); background: #26352b; }

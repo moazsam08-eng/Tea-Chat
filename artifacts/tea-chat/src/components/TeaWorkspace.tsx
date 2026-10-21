@@ -17,6 +17,7 @@ import {
   ArrowLeft,
   CircleAlert,
   Leaf,
+  LockKeyhole,
   LogOut,
   MessageCirclePlus,
   Moon,
@@ -33,6 +34,7 @@ import { CallHistoryActionsContext, TeaChatAttachment } from '@/components/TeaCh
 import { useAudioCall } from '@/hooks/useAudioCall';
 import { toast } from '@/hooks/use-toast';
 import { ProfileSettingsModal } from '@/components/ProfileSettingsModal';
+import { ChatLockModal } from '@/components/ChatLockModal';
 import { useTheme } from '@/components/ThemeContext';
 
 const VideoCallModal = lazy(() => import('./VideoCallModal'));
@@ -91,6 +93,20 @@ function getConversationPreview(channel: StreamChannel) {
   return 'Start a conversation';
 }
 
+function readableChatLockError(message: string) {
+  if (/schema cache|function .* does not exist|could not find the function|relation .* does not exist/i.test(message)) {
+    return 'Chat locks are not set up yet. Apply supabase/chat-locks.sql in your Supabase SQL Editor, then try again.';
+  }
+  return message || 'Could not load your chat locks. Please try again.';
+}
+
+function readableChatLockError(message: string) {
+  if (/schema cache|function .* does not exist|could not find the function|relation .* does not exist/i.test(message)) {
+    return 'Chat locks are not set up yet. Apply supabase/chat-locks.sql in your Supabase SQL Editor, then try again.';
+  }
+  return message || 'Could not load your chat locks. Please try again.';
+}
+
 export function TeaWorkspace({ user, streamToken, supabase, onSignOut }: WorkspaceProps) {
   const apiKey = import.meta.env.VITE_STREAM_API_KEY as string | undefined;
   const { theme, toggleTheme } = useTheme();
@@ -110,6 +126,9 @@ export function TeaWorkspace({ user, streamToken, supabase, onSignOut }: Workspa
   const [mobileOpen, setMobileOpen] = useState(false);
   const [peopleOpen, setPeopleOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [lockedCids, setLockedCids] = useState<Set<string>>(new Set());
+  const [hasLockPasscode, setHasLockPasscode] = useState(false);
+  const [lockDialog, setLockDialog] = useState<{ channelCid: string; channelTitle: string; mode: 'setup' | 'unlock' } | null>(null);
   const [profileName, setProfileName] = useState(initialName);
   const [profileImage, setProfileImage] = useState<string | null>(streamToken.image);
   const [working, setWorking] = useState(false);
@@ -151,6 +170,24 @@ export function TeaWorkspace({ user, streamToken, supabase, onSignOut }: Workspa
       setConversationsError('');
     }
     try {
+      const [{ data: lockedData, error: lockedError }, { data: codeType, error: codeTypeError }] = await Promise.all([
+        supabase.rpc('list_locked_chat_cids'),
+        supabase.rpc('get_chat_lock_code_type'),
+      ]);
+      if (lockedError || codeTypeError) {
+        const lockError = lockedError ?? codeTypeError!;
+        const migrationNotInstalled = [lockedError, codeTypeError].every((error) => !error || /schema cache|function .* does not exist|could not find the function|relation .* does not exist/i.test(error.message));
+        if (lockedError && codeTypeError && migrationNotInstalled) {
+          setLockedCids(new Set());
+          setHasLockPasscode(false);
+        } else {
+          throw new Error(readableChatLockError(lockError.message));
+        }
+      } else {
+        const lockRows = (Array.isArray(lockedData) ? lockedData : []) as Array<{ channel_cid?: unknown }>;
+        setLockedCids(new Set(lockRows.flatMap((row) => typeof row.channel_cid === 'string' ? [row.channel_cid] : [])));
+        setHasLockPasscode(typeof codeType === 'string' && codeType.length > 0);
+      }
       const channels = await client.queryChannels(
         { type: 'messaging', members: { $in: [streamToken.userId] } },
         { last_message_at: -1 },
@@ -163,11 +200,14 @@ export function TeaWorkspace({ user, streamToken, supabase, onSignOut }: Workspa
     } finally {
       if (showLoading) setConversationsLoading(false);
     }
-  }, [client, streamToken.userId]);
+  }, [client, streamToken.userId, supabase]);
 
   useEffect(() => {
     if (!client) {
       setConversations([]);
+      setLockedCids(new Set());
+      setHasLockPasscode(false);
+      setLockDialog(null);
       setConversationsLoading(false);
       return;
     }
@@ -196,12 +236,28 @@ export function TeaWorkspace({ user, streamToken, supabase, onSignOut }: Workspa
     void videoClient?.disconnectUser().catch(() => undefined);
   }, [videoClient]);
 
+  function openLockDialog(channel: StreamChannel, mode: 'setup' | 'unlock') {
+    setLockDialog({
+      channelCid: channel.cid,
+      channelTitle: mode === 'unlock' ? 'Locked conversation' : getConversationTitle(channel, streamToken.userId),
+      mode,
+    });
+  }
+
+  async function openConversation(channel: StreamChannel) {
+    await channel.watch();
+    setActiveChannel(channel);
+    setMobileOpen(true);
+    setSearch('');
+  }
+
   async function selectConversation(channel: StreamChannel) {
+    if (lockedCids.has(channel.cid)) {
+      openLockDialog(channel, 'unlock');
+      return;
+    }
     try {
-      await channel.watch();
-      setActiveChannel(channel);
-      setMobileOpen(true);
-      setSearch('');
+      await openConversation(channel);
     } catch (error) {
       setConnectionError(error instanceof Error ? error.message : 'Could not open this conversation.');
     }
@@ -211,8 +267,29 @@ export function TeaWorkspace({ user, streamToken, supabase, onSignOut }: Workspa
     if (!client) return;
     setWorking(true);
     try {
+      const existing = conversations.find((candidate) => {
+        const memberIds = Object.keys(candidate.state.members);
+        return memberIds.length === 2 && memberIds.includes(streamToken.userId) && memberIds.includes(person.id);
+      });
+      if (existing) {
+        setPeopleOpen(false);
+        await selectConversation(existing);
+        return;
+      }
       const channel = client.channel('messaging', { members: [streamToken.userId, person.id] });
+      if (channel.cid && lockedCids.has(channel.cid)) {
+        setConversations((current) => [channel, ...current.filter((item) => item.cid !== channel.cid)]);
+        setPeopleOpen(false);
+        openLockDialog(channel, 'unlock');
+        return;
+      }
       await channel.watch();
+      if (lockedCids.has(channel.cid)) {
+        setConversations((current) => [channel, ...current.filter((item) => item.cid !== channel.cid)]);
+        setPeopleOpen(false);
+        openLockDialog(channel, 'unlock');
+        return;
+      }
       setConversations((current) => [channel, ...current.filter((item) => item.cid !== channel.cid)]);
       setActiveChannel(channel);
       setMobileOpen(true);
@@ -222,6 +299,37 @@ export function TeaWorkspace({ user, streamToken, supabase, onSignOut }: Workspa
     } finally {
       setWorking(false);
     }
+  }
+
+  function handleChatLocked(channelCid: string) {
+    setLockedCids((current) => new Set(current).add(channelCid));
+    setHasLockPasscode(true);
+    setLockDialog(null);
+    if (activeChannel?.cid === channelCid) {
+      setActiveChannel(null);
+      setMobileOpen(false);
+    }
+  }
+
+  function handleChatUnlocked(channelCid: string) {
+    const channel = conversations.find((candidate) => candidate.cid === channelCid);
+    setLockDialog(null);
+    if (!channel) {
+      setConversationsError('This conversation is no longer in your list. Refresh and try again.');
+      return;
+    }
+    void openConversation(channel).catch((error: unknown) => {
+      setConnectionError(error instanceof Error ? error.message : 'Could not open this conversation.');
+    });
+  }
+
+  function handleChatRemoved(channelCid: string) {
+    setLockedCids((current) => {
+      const next = new Set(current);
+      next.delete(channelCid);
+      return next;
+    });
+    handleChatUnlocked(channelCid);
   }
 
   async function startCall(sourceChannel: StreamChannel | null, audioOnly = false) {
@@ -284,12 +392,15 @@ export function TeaWorkspace({ user, streamToken, supabase, onSignOut }: Workspa
 
   const visibleConversations = useMemo(() => {
     const query = search.trim().toLocaleLowerCase();
-    if (!query) return conversations;
-    return conversations.filter((channel) =>
-      getConversationTitle(channel, streamToken.userId).toLocaleLowerCase().includes(query) ||
-      getConversationPreview(channel).toLocaleLowerCase().includes(query),
-    );
-  }, [conversations, search, streamToken.userId]);
+    return conversations.filter((channel) => {
+      if (lockedCids.has(channel.cid)) {
+        return !query || 'locked conversation'.includes(query) || 'passcode required'.includes(query);
+      }
+      if (!query) return true;
+      return getConversationTitle(channel, streamToken.userId).toLocaleLowerCase().includes(query) ||
+        getConversationPreview(channel).toLocaleLowerCase().includes(query);
+    });
+  }, [conversations, lockedCids, search, streamToken.userId]);
 
   const chatFrame = (
     <section className={`chat-frame${mobileOpen ? ' mobile-channel-open' : ''}`} data-testid="chat-workspace">
@@ -319,15 +430,19 @@ export function TeaWorkspace({ user, streamToken, supabase, onSignOut }: Workspa
               ) : visibleConversations.length ? (
                 <div className="conversation-list">
                   {visibleConversations.map((channel) => {
-                    const title = getConversationTitle(channel, streamToken.userId);
-                    const image = getConversationImage(channel, streamToken.userId);
-                    const preview = getConversationPreview(channel);
+                    const isLocked = lockedCids.has(channel.cid);
+                    const title = isLocked ? 'Locked conversation' : getConversationTitle(channel, streamToken.userId);
+                    const image = isLocked ? null : getConversationImage(channel, streamToken.userId);
+                    const preview = isLocked ? 'Passcode required' : getConversationPreview(channel);
                     const selected = activeChannel?.cid === channel.cid;
                     return (
-                      <button key={channel.cid} className={'conversation-preview' + (selected ? ' is-active' : '')} type="button" onClick={() => { void selectConversation(channel); }} aria-pressed={selected} aria-label={'Open conversation with ' + title} data-testid="button-open-conversation">
-                        <span className="conversation-preview-avatar">{image ? <img src={image} alt="" /> : <span>{title.slice(0, 1).toUpperCase() || 'T'}</span>}</span>
-                        <span className="conversation-preview-copy"><strong className="conversation-preview-name">{title}</strong><span className="conversation-preview-message">{preview}</span></span>
-                      </button>
+                      <div key={channel.cid} className="conversation-row">
+                        <button className={'conversation-preview' + (selected ? ' is-active' : '')} type="button" onClick={() => { void selectConversation(channel); }} aria-pressed={selected} aria-label={isLocked ? 'Open locked conversation' : 'Open conversation with ' + title} data-testid="button-open-conversation">
+                          <span className="conversation-preview-avatar">{image ? <img src={image} alt="" /> : <span>{isLocked ? <LockKeyhole size={15} /> : title.slice(0, 1).toUpperCase() || 'T'}</span>}</span>
+                          <span className="conversation-preview-copy"><strong className="conversation-preview-name">{title}</strong><span className="conversation-preview-message">{preview}</span></span>
+                        </button>
+                        <button className="conversation-lock-action" type="button" onClick={() => openLockDialog(channel, isLocked ? 'unlock' : 'setup')} aria-label={isLocked ? 'Unlock locked conversation' : 'Lock conversation with ' + title} title={isLocked ? 'Unlock conversation' : 'Lock conversation'} data-testid={isLocked ? 'button-unlock-conversation' : 'button-lock-conversation'}><LockKeyhole size={14} /></button>
+                      </div>
                     );
                   })}
                 </div>
@@ -377,6 +492,21 @@ export function TeaWorkspace({ user, streamToken, supabase, onSignOut }: Workspa
           supabase={supabase}
           onClose={() => setProfileOpen(false)}
           onSaved={(profile) => { setProfileName(profile.name); setProfileImage(profile.image); }}
+        />
+      )}
+      {lockDialog && (
+        <ChatLockModal
+          key={lockDialog.channelCid + ':' + lockDialog.mode}
+          mode={lockDialog.mode}
+          channelCid={lockDialog.channelCid}
+          channelTitle={lockDialog.channelTitle}
+          email={user.email ?? ''}
+          hasPasscode={hasLockPasscode}
+          supabase={supabase}
+          onClose={() => setLockDialog(null)}
+          onLocked={handleChatLocked}
+          onUnlocked={handleChatUnlocked}
+          onRemoved={handleChatRemoved}
         />
       )}
       {audioCall.call && (
