@@ -100,13 +100,6 @@ function readableChatLockError(message: string) {
   return message || 'Could not load your chat locks. Please try again.';
 }
 
-function readableChatLockError(message: string) {
-  if (/schema cache|function .* does not exist|could not find the function|relation .* does not exist/i.test(message)) {
-    return 'Chat locks are not set up yet. Apply supabase/chat-locks.sql in your Supabase SQL Editor, then try again.';
-  }
-  return message || 'Could not load your chat locks. Please try again.';
-}
-
 export function TeaWorkspace({ user, streamToken, supabase, onSignOut }: WorkspaceProps) {
   const apiKey = import.meta.env.VITE_STREAM_API_KEY as string | undefined;
   const { theme, toggleTheme } = useTheme();
