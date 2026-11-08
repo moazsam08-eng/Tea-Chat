@@ -10,18 +10,12 @@
     "tea-chat": {
       "root": "artifacts/tea-chat",
       "framework": "vite",
-      "outputDirectory": "dist/public",
-      "rewrites": [
-        {
-          "source": "/(.*)",
-          "destination": "/index.html"
-        }
-      ]
+      "outputDirectory": "dist/public"
     }
   },
   "rewrites": [
     {
-      "source": "/api/(.*)",
+      "source": "/api/:path*",
       "destination": {
         "service": "api-server"
       }
