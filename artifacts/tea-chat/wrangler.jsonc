@@ -7,6 +7,7 @@
     "nodejs_compat",
     "nodejs_compat_populate_process_env"
   ],
+  "keep_vars": true,
   "vars": {
     "NODE_ENV": "production",
     "LOG_LEVEL": "info"
