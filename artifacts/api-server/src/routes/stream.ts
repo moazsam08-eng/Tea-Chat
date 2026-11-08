@@ -95,7 +95,7 @@ router.post("/stream/token", async (req, res): Promise<void> => {
 
     res.json(response);
   } catch {
-    req.log.error("Stream token generation failed");
+    console.error("Stream token generation failed");
     res.status(502).json({
       error: "Tea Chat could not connect to messaging. Please try again.",
     });
@@ -142,7 +142,7 @@ router.get("/people", async (req, res): Promise<void> => {
       nextOffset: response.users.length === 25 && !ids.length ? offset + 25 : null,
     });
   } catch {
-    req.log.error("Tea Chat people directory query failed");
+    console.error("Tea Chat people directory query failed");
     res.status(502).json({ error: "The people directory is unavailable. Please try again." });
   }
 });
@@ -177,7 +177,7 @@ router.put("/stream/profile", async (req, res): Promise<void> => {
     });
     res.json({ name, image });
   } catch {
-    req.log.error("Tea Chat profile update failed");
+    console.error("Tea Chat profile update failed");
     res.status(502).json({ error: "Your chat profile could not be updated. Please try again." });
   }
 });
