@@ -103,8 +103,15 @@ router.post("/stream/token", async (req, res): Promise<void> => {
 
     res.json(response);
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown Stream error";
-    console.error("[api] Stream token generation failed:", message);
+    const details = error && typeof error === "object"
+      ? error as { name?: unknown; message?: unknown; code?: unknown; status?: unknown; response?: { status?: unknown } }
+      : null;
+    console.error("[api] Stream token generation failed", {
+      name: typeof details?.name === "string" ? details.name : "UnknownError",
+      message: typeof details?.message === "string" ? details.message : "Unknown Stream error",
+      code: details?.code ?? null,
+      status: details?.status ?? details?.response?.status ?? null,
+    });
     res.status(502).json({
       error: "Tea Chat could not connect to messaging. Please try again.",
     });
