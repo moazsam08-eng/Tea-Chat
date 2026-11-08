@@ -3,6 +3,10 @@
   "name": "tea-chat",
   "main": "./worker.ts",
   "compatibility_date": "2026-11-08",
+  "compatibility_flags": [
+    "nodejs_compat",
+    "nodejs_compat_populate_process_env"
+  ],
   "vars": {
     "NODE_ENV": "production",
     "LOG_LEVEL": "info"
