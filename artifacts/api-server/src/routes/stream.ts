@@ -1,6 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
 import { GetStreamTokenResponse } from "@workspace/api-zod";
-import { StreamChat } from "stream-chat";
 import { Router, type IRouter, type Request, type Response } from "express";
 
 const router: IRouter = Router();
@@ -77,14 +76,52 @@ async function createStreamUserToken(userId: string, apiSecret: string): Promise
   return `${signingInput}.${base64UrlEncode(new Uint8Array(signature))}`;
 }
 
-function getStreamServerClient(res: Response) {
-  const streamApiKey = process.env.VITE_STREAM_API_KEY;
-  const streamApiSecret = process.env.STREAM_API_SECRET;
-  if (!streamApiKey || !streamApiSecret) {
+async function createStreamServerToken(apiSecret: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const now = Math.floor(Date.now() / 1000);
+  const header = base64UrlEncode(encoder.encode(JSON.stringify({ alg: "HS256", typ: "JWT" })));
+  const payload = base64UrlEncode(encoder.encode(JSON.stringify({ server: true, iat: now })));
+  const signingInput = `${header}.${payload}`;
+  const key = await crypto.subtle.importKey(
+    "raw",
+    encoder.encode(apiSecret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+  const signature = await crypto.subtle.sign("HMAC", key, encoder.encode(signingInput));
+  return `${signingInput}.${base64UrlEncode(new Uint8Array(signature))}`;
+}
+
+async function streamApiRequest(
+  apiKey: string,
+  apiSecret: string,
+  path: string,
+  init: RequestInit = {},
+): Promise<globalThis.Response> {
+  const token = await createStreamServerToken(apiSecret);
+  const url = new URL(`https://chat.stream-io-api.com/api/v2/${path}`);
+  url.searchParams.set("api_key", apiKey);
+  return fetch(url, {
+    ...init,
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+      Authorization: token,
+      "Stream-Auth-Type": "jwt",
+      ...init.headers,
+    },
+  });
+}
+
+function getStreamCredentials(res: Response) {
+  const apiKey = process.env.VITE_STREAM_API_KEY;
+  const apiSecret = process.env.STREAM_API_SECRET;
+  if (!apiKey || !apiSecret) {
     res.status(503).json({ error: "Chat is not configured yet." });
     return null;
   }
-  return StreamChat.getInstance(streamApiKey, streamApiSecret);
+  return { apiKey, apiSecret };
 }
 
 router.post("/stream/token", async (req, res): Promise<void> => {
@@ -144,8 +181,8 @@ router.post("/stream/token", async (req, res): Promise<void> => {
 router.get("/people", async (req, res): Promise<void> => {
   const user = await authenticateSupabaseUser(req, res);
   if (!user) return;
-  const stream = getStreamServerClient(res);
-  if (!stream) return;
+  const credentials = getStreamCredentials(res);
+  if (!credentials) return;
 
   const search = typeof req.query.search === "string" ? req.query.search.trim().slice(0, 80) : "";
   const idsValue = typeof req.query.ids === "string" ? req.query.ids : "";
@@ -167,18 +204,35 @@ router.get("/people", async (req, res): Promise<void> => {
   const offset = Number.isInteger(offsetValue) ? Math.min(Math.max(offsetValue, 0), 1000) : 0;
 
   try {
-    const response = await stream.queryUsers(
-      filters as never,
-      { name: 1 },
-      { limit: ids.length ? Math.max(ids.length, 1) : 25, offset, presence: false },
+    const payload = {
+      filter_conditions: filters,
+      sort: [{ field: "name", direction: 1 }],
+      limit: ids.length ? Math.max(ids.length, 1) : 25,
+      offset,
+    };
+    const url = new URL("https://chat.stream-io-api.com/api/v2/users");
+    url.searchParams.set("api_key", credentials.apiKey);
+    url.searchParams.set("payload", JSON.stringify(payload));
+    const response = await streamApiRequest(
+      credentials.apiKey,
+      credentials.apiSecret,
+      `users?${url.searchParams.toString().replace(/^api_key=[^&]*&?/, "")}`,
     );
+    if (!response.ok) {
+      const detail = await response.text();
+      console.error("[api] Stream user directory request failed", { status: response.status, detail });
+      res.status(502).json({ error: "The people directory is unavailable. Please try again." });
+      return;
+    }
+    const data = await response.json() as { users?: Array<{ id: string; name?: unknown; image?: unknown }> };
+    const users = Array.isArray(data.users) ? data.users : [];
     res.json({
-      users: response.users.map((person) => ({
+      users: users.map((person) => ({
         id: person.id,
         name: typeof person.name === "string" && person.name.trim() ? person.name.trim() : "Tea Chat member",
         image: typeof person.image === "string" ? person.image : null,
       })),
-      nextOffset: response.users.length === 25 && !ids.length ? offset + 25 : null,
+      nextOffset: users.length === 25 && !ids.length ? offset + 25 : null,
     });
   } catch {
     console.error("Tea Chat people directory query failed");
@@ -189,8 +243,8 @@ router.get("/people", async (req, res): Promise<void> => {
 router.put("/stream/profile", async (req, res): Promise<void> => {
   const user = await authenticateSupabaseUser(req, res);
   if (!user) return;
-  const stream = getStreamServerClient(res);
-  if (!stream) return;
+  const credentials = getStreamCredentials(res);
+  if (!credentials) return;
 
   const name = typeof req.body?.name === "string" ? req.body.name.trim() : "";
   const image = req.body?.image;
@@ -209,11 +263,23 @@ router.put("/stream/profile", async (req, res): Promise<void> => {
   }
 
   try {
-    await stream.partialUpdateUser({
-      id: user.id,
-      set: image ? { name, image } : { name },
-      ...(image === null ? { unset: ["image"] } : {}),
-    });
+    const userUpdate: Record<string, unknown> = { id: user.id, name };
+    if (image) userUpdate.image = image;
+    const response = await streamApiRequest(
+      credentials.apiKey,
+      credentials.apiSecret,
+      "users",
+      {
+        method: "POST",
+        body: JSON.stringify({ users: { [user.id]: userUpdate } }),
+      },
+    );
+    if (!response.ok) {
+      const detail = await response.text();
+      console.error("[api] Stream profile update failed", { status: response.status, detail });
+      res.status(502).json({ error: "Your chat profile could not be updated. Please try again." });
+      return;
+    }
     res.json({ name, image });
   } catch {
     console.error("Tea Chat profile update failed");
