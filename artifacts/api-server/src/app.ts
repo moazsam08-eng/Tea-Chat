@@ -17,4 +17,27 @@ app.use(express.urlencoded({ extended: true }));
 
 app.use("/api", router);
 
+// Express 5 forwards rejected async route handlers here. Without this
+// middleware, its default handler returns an HTML 500 page and hides the
+// useful exception details from our application logs.
+app.use((error: unknown, req: express.Request, res: express.Response, next: express.NextFunction) => {
+  const err = error instanceof Error ? error : new Error(String(error));
+  console.error("[api] Unhandled route exception", {
+    method: req.method,
+    path: req.path,
+    name: err.name,
+    message: err.message,
+    stack: err.stack,
+  });
+
+  if (res.headersSent) {
+    next(error);
+    return;
+  }
+
+  res.status(500).json({
+    error: "The server could not complete this request. Check Worker logs for the request error.",
+  });
+});
+
 export default app;
