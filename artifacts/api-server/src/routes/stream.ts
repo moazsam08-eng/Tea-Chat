@@ -28,17 +28,25 @@ async function authenticateSupabaseUser(req: Request, res: Response) {
       persistSession: false,
     },
   });
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser(accessToken);
+  try {
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser(accessToken);
 
-  if (authError || !user) {
-    res.status(401).json({ error: "Your session expired. Sign in again." });
+    if (authError || !user) {
+      console.error("[api] Supabase session validation failed:", authError?.message ?? "No user returned");
+      res.status(401).json({ error: "Your session expired. Sign in again." });
+      return null;
+    }
+
+    return user;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown Supabase authentication error";
+    console.error("[api] Supabase session validation threw:", message);
+    res.status(502).json({ error: "Could not verify your sign-in session. Please try again." });
     return null;
   }
-
-  return user;
 }
 
 function getStreamServerClient(res: Response) {
@@ -94,8 +102,9 @@ router.post("/stream/token", async (req, res): Promise<void> => {
     });
 
     res.json(response);
-  } catch {
-    console.error("Stream token generation failed");
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown Stream error";
+    console.error("[api] Stream token generation failed:", message);
     res.status(502).json({
       error: "Tea Chat could not connect to messaging. Please try again.",
     });
