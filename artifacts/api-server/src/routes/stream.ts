@@ -49,6 +49,34 @@ async function authenticateSupabaseUser(req: Request, res: Response) {
   }
 }
 
+
+function base64UrlEncode(bytes: Uint8Array): string {
+  let binary = "";
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary).replace(/\\+/g, "-").replace(/\\//g, "_").replace(/=+$/g, "");
+}
+
+async function createStreamUserToken(userId: string, apiSecret: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const now = Math.floor(Date.now() / 1000);
+  const header = base64UrlEncode(encoder.encode(JSON.stringify({ alg: "HS256", typ: "JWT" })));
+  const payload = base64UrlEncode(encoder.encode(JSON.stringify({
+    user_id: userId,
+    iat: now,
+    exp: now + 60 * 60,
+  })));
+  const signingInput = `${header}.${payload}`;
+  const key = await crypto.subtle.importKey(
+    "raw",
+    encoder.encode(apiSecret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+  const signature = await crypto.subtle.sign("HMAC", key, encoder.encode(signingInput));
+  return `${signingInput}.${base64UrlEncode(new Uint8Array(signature))}`;
+}
+
 function getStreamServerClient(res: Response) {
   const streamApiKey = process.env.VITE_STREAM_API_KEY;
   const streamApiSecret = process.env.STREAM_API_SECRET;
@@ -87,18 +115,13 @@ router.post("/stream/token", async (req, res): Promise<void> => {
       : null;
 
   try {
-    const stream = StreamChat.getInstance(streamApiKey, streamApiSecret);
-    await stream.upsertUser({
-      id: user.id,
-      name,
-      ...(image ? { image } : {}),
-    });
-
+    // Cloudflare Workers do not provide Node's https.Agent. Sign the
+    // Stream user JWT with Web Crypto; connectUser() on the client syncs the user.
     const response = GetStreamTokenResponse.parse({
       userId: user.id,
       name,
       image,
-      token: stream.createToken(user.id),
+      token: await createStreamUserToken(user.id, streamApiSecret),
     });
 
     res.json(response);
