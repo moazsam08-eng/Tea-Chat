@@ -183,6 +183,7 @@ function MaintenanceScreen({ endsAt }: { endsAt: string | null }) {
   return (
     <main className="maintenance-screen">
       <div className="maintenance-card">
+        <div className="maintenance-love" aria-label="Love you">love you <span>♥</span></div>
         <div className="maintenance-mark"><Leaf size={25} /></div>
         <p className="maintenance-eyebrow">TEA CHAT · TEMPORARILY AWAY</p>
         <h1>We’ll be back soon.</h1>
