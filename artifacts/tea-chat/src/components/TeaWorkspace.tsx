@@ -570,6 +570,25 @@ function formatCountdown(milliseconds: number) {
 
 function DailyTextLimit({ channel, supabase }: { channel: StreamChannel; supabase: SupabaseClient }) {
   const [count, setCount] = useState(0);
+  const [limit, setLimit] = useState(10);
+
+  useEffect(() => {
+    let active = true;
+    const loadLimit = async () => {
+      try {
+        const response = await fetch('https://tea-chat.moazsam08.workers.dev/api/message-limits/config', { cache: 'no-store' });
+        if (!response.ok) return;
+        const config = await response.json() as { dailyTextMessageLimit?: unknown };
+        if (active && typeof config.dailyTextMessageLimit === 'number' && Number.isInteger(config.dailyTextMessageLimit) && config.dailyTextMessageLimit >= 1) {
+          setLimit(config.dailyTextMessageLimit);
+        }
+      } catch {
+        // Keep the safe default until the Worker configuration can be loaded.
+      }
+    };
+    void loadLimit();
+    return () => { active = false; };
+  }, []);
   const [clock, setClock] = useState(() => {
     const now = Date.now();
     return { now, resetAt: getNextCairoMidnight(now) };
@@ -579,7 +598,7 @@ function DailyTextLimit({ channel, supabase }: { channel: StreamChannel; supabas
     const { data, error } = await supabase.rpc('get_daily_text_message_count', {
       p_channel_cid: channel.cid,
     });
-    if (!error && typeof data === 'number') setCount(Math.min(10, Math.max(0, data)));
+    if (!error && typeof data === 'number') setCount(Math.max(0, data));
   }, [channel.cid, supabase]);
 
   useEffect(() => {
@@ -609,13 +628,13 @@ function DailyTextLimit({ channel, supabase }: { channel: StreamChannel; supabas
     <div className="daily-text-limit" aria-live="polite" data-testid="daily-text-limit">
       <div className="daily-text-limit__usage">
         <span>Daily text messages</span>
-        <strong>{count}/10</strong>
+        <strong>{count}/{limit}</strong>
       </div>
-      <div className="daily-text-limit__track" aria-label={`${count} of 10 text messages used`}>
-        <span style={{ width: `${count * 10}%` }} />
+      <div className="daily-text-limit__track" aria-label={`${count} of ${limit} text messages used`}>
+        <span style={{ width: `${Math.min(100, (count / limit) * 100)}%` }} />
       </div>
       <div className="daily-text-limit__reset">
-        <span>{count >= 10 ? 'Your text limit resets in' : 'Resets in'}</span>
+        <span>{count >= limit ? 'Your text limit resets in' : 'Resets in'}</span>
         <strong>{formatCountdown(clock.resetAt - clock.now)}</strong>
         <span>Cairo time</span>
       </div>
