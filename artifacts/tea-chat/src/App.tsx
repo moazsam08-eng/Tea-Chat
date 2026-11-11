@@ -164,14 +164,71 @@ function RoutedErrorBoundary({ children }: { children: ReactNode }) {
   return <ErrorBoundary resetKey={location}>{children}</ErrorBoundary>;
 }
 
+
+type MaintenanceState = { active: boolean; startedAt: string | null; endsAt: string | null };
+
+function MaintenanceScreen({ endsAt }: { endsAt: string | null }) {
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, []);
+  const remaining = Math.max(0, (endsAt ? new Date(endsAt).getTime() : now) - now);
+  const units = [
+    { label: 'Days', value: Math.floor(remaining / 86400000) },
+    { label: 'Hours', value: Math.floor((remaining % 86400000) / 3600000) },
+    { label: 'Minutes', value: Math.floor((remaining % 3600000) / 60000) },
+    { label: 'Seconds', value: Math.floor((remaining % 60000) / 1000) },
+  ];
+  return (
+    <main className="maintenance-screen">
+      <div className="maintenance-card">
+        <div className="maintenance-mark"><Leaf size={25} /></div>
+        <p className="maintenance-eyebrow">TEA CHAT · TEMPORARILY AWAY</p>
+        <h1>We’ll be back soon.</h1>
+        <p className="maintenance-copy">Tea Chat is taking a little break for scheduled maintenance. Thanks for your patience — your conversations will be waiting for you.</p>
+        <div className="maintenance-countdown" aria-label="Time until Tea Chat returns">
+          {units.map((unit) => <div className="maintenance-unit" key={unit.label}><strong>{String(unit.value).padStart(2, '0')}</strong><span>{unit.label}</span></div>)}
+        </div>
+        <p className="maintenance-foot">The countdown started when maintenance was activated.</p>
+      </div>
+    </main>
+  );
+}
+
+function MaintenanceGate({ children }: { children: ReactNode }) {
+  const [state, setState] = useState<MaintenanceState | null>(null);
+  useEffect(() => {
+    let alive = true;
+    const check = async () => {
+      try {
+        const response = await fetch('/api/maintenance/status', { cache: 'no-store' });
+        if (!response.ok) throw new Error('Maintenance status unavailable');
+        const next = await response.json() as MaintenanceState;
+        if (alive) setState(next);
+      } catch {
+        if (alive) setState({ active: false, startedAt: null, endsAt: null });
+      }
+    };
+    void check();
+    const timer = window.setInterval(() => void check(), 30000);
+    return () => { alive = false; window.clearInterval(timer); };
+  }, []);
+  if (!state) return <div className="loading-screen"><div className="loading-brand"><LoaderCircle size={19} className="animate-spin" />Checking Tea Chat…</div></div>;
+  if (state.active) return <MaintenanceScreen endsAt={state.endsAt} />;
+  return <>{children}</>;
+}
+
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
         <TooltipProvider>
-          <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, '')}>
-            <Router />
-          </WouterRouter>
+          <MaintenanceGate>
+            <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, '')}>
+              <Router />
+            </WouterRouter>
+          </MaintenanceGate>
           <Toaster />
         </TooltipProvider>
       </ThemeProvider>
