@@ -499,3 +499,18 @@
 .dark .daily-text-limit, .dark .daily-text-limit__usage, .dark .daily-text-limit__reset { color: var(--muted-foreground); }
 .dark .daily-text-limit__usage strong, .dark .daily-text-limit__reset strong { color: var(--leaf); }
 .dark .daily-text-limit__track { background: #35483a; }
+
+
+/* Seven-day maintenance screen */
+.maintenance-screen { min-height: 100dvh; display: grid; place-items: center; padding: 28px 18px; background: radial-gradient(circle at 50% 0%, #e7eee4 0, #f7f5ed 48%, #f1eee4 100%); color: #263b34; }
+.maintenance-card { width: min(100%, 560px); padding: clamp(30px, 7vw, 58px); text-align: center; border: 1px solid #e5e4d9; border-radius: 24px; background: rgba(255,254,249,.88); box-shadow: 0 22px 70px rgba(38,59,52,.09); }
+.maintenance-mark { width: 58px; height: 58px; display: grid; place-items: center; margin: 0 auto 25px; border: 1px solid #cbd9ca; border-radius: 50%; color: #476c5a; background: #edf2e9; }
+.maintenance-eyebrow { margin: 0 0 13px; color: #718575; font-size: 10px; font-weight: 700; letter-spacing: .19em; }
+.maintenance-card h1 { margin: 0; font-family: var(--app-font-serif); font-size: clamp(36px, 7vw, 52px); font-weight: 500; letter-spacing: -.045em; }
+.maintenance-copy { max-width: 410px; margin: 17px auto 30px; color: #78847a; font-size: 14px; line-height: 1.8; }
+.maintenance-countdown { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 9px; }
+.maintenance-unit { padding: 17px 6px 14px; border: 1px solid #e6e6dc; border-radius: 13px; background: #f8f7f0; }
+.maintenance-unit strong { display: block; color: #355747; font-size: clamp(24px, 5vw, 34px); font-variant-numeric: tabular-nums; font-weight: 600; }
+.maintenance-unit span { display: block; margin-top: 5px; color: #899389; font-size: 10px; text-transform: uppercase; letter-spacing: .08em; }
+.maintenance-foot { margin: 23px 0 0; color: #9aa197; font-size: 11px; }
+@media (max-width: 420px) { .maintenance-countdown { gap: 6px; } .maintenance-unit { padding: 14px 3px 12px; } .maintenance-unit span { font-size: 9px; letter-spacing: .02em; } }
