@@ -48,7 +48,7 @@ begin
   from public.daily_text_message_limits
   where channel_cid = p_channel_cid and user_id = p_user_id;
 
-  return coalesce(v_count, 10);
+  return -1;
 end;
 $$;
 
