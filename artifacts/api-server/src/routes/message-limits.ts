@@ -3,6 +3,16 @@ import { Router, type IRouter, type Request, type Response } from "express";
 
 const router: IRouter = Router();
 
+function getDailyTextMessageLimit(): number {
+  const parsed = Number.parseInt(process.env.DAILY_TEXT_MESSAGE_LIMIT ?? "10", 10);
+  return Number.isFinite(parsed) && parsed >= 1 && parsed <= 32767 ? parsed : 10;
+}
+
+router.get("/message-limits/config", (_req: Request, res: Response): void => {
+  res.setHeader("Cache-Control", "no-store");
+  res.json({ dailyTextMessageLimit: getDailyTextMessageLimit() });
+});
+
 type StreamBeforeSendPayload = {
   message?: {
     text?: unknown;
@@ -46,6 +56,7 @@ router.post("/webhooks/stream/before-message-send", async (req: Request, res: Re
   const apiSecret = process.env.STREAM_API_SECRET;
   const supabaseUrl = process.env.VITE_SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const dailyLimit = getDailyTextMessageLimit();
   const rawBody = req.body;
 
   if (!apiKey || !apiSecret || !supabaseUrl || !serviceRoleKey || !(rawBody instanceof Uint8Array)) {
@@ -108,7 +119,7 @@ router.post("/webhooks/stream/before-message-send", async (req: Request, res: Re
     }
 
     if (count < 0) {
-      rejectMessage(res, "You have used your 10 text messages for this conversation today. Your limit resets at midnight Cairo time.");
+      rejectMessage(res, `You have used your ${dailyLimit} text messages for this conversation today. Your limit resets at midnight Cairo time.`);
       return;
     }
 
