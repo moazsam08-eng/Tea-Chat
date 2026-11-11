@@ -514,3 +514,8 @@
 .maintenance-unit span { display: block; margin-top: 5px; color: #899389; font-size: 10px; text-transform: uppercase; letter-spacing: .08em; }
 .maintenance-foot { margin: 23px 0 0; color: #9aa197; font-size: 11px; }
 @media (max-width: 420px) { .maintenance-countdown { gap: 6px; } .maintenance-unit { padding: 14px 3px 12px; } .maintenance-unit span { font-size: 9px; letter-spacing: .02em; } }
+
+.maintenance-love { display: flex; align-items: center; justify-content: center; gap: 7px; margin: 0 auto 22px; color: #8b6c69; font-family: var(--app-font-serif); font-size: 17px; font-style: italic; letter-spacing: .035em; }
+.maintenance-love span { display: inline-block; color: #c77d79; font-family: Georgia, serif; font-size: 19px; font-style: normal; animation: maintenance-heartbeat 1.8s ease-in-out infinite; text-shadow: 0 2px 10px rgba(199,125,121,.22); }
+@keyframes maintenance-heartbeat { 0%, 100% { transform: scale(1); } 14% { transform: scale(1.2); } 28% { transform: scale(1); } 42% { transform: scale(1.13); } 56% { transform: scale(1); } }
+@media (prefers-reduced-motion: reduce) { .maintenance-love span { animation: none; } }
