@@ -151,7 +151,6 @@ function Router() {
   return (
     <RoutedErrorBoundary>
       <Switch>
-        <Route path="/maintenance-admin" component={MaintenanceAdmin} />
         <Route path="/" component={Home} />
         <Route path="/auth/callback" component={AuthCallback} />
         <Route component={NotFound} />
@@ -197,55 +196,6 @@ function MaintenanceScreen({ endsAt }: { endsAt: string | null }) {
   );
 }
 
-
-function MaintenanceAdmin() {
-  const [key, setKey] = useState('');
-  const [state, setState] = useState<MaintenanceState | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState('');
-  const refresh = async () => {
-    try {
-      const response = await fetch('/api/maintenance/status', { cache: 'no-store' });
-      if (!response.ok) throw new Error('Could not read maintenance status. Check the database setup.');
-      setState(await response.json() as MaintenanceState);
-    } catch (error) { setMessage(error instanceof Error ? error.message : 'Could not read status.'); }
-  };
-  useEffect(() => { void refresh(); }, []);
-  const changeMode = async (action: 'activate' | 'deactivate') => {
-    if (!key.trim()) { setMessage('Enter the maintenance admin key first.'); return; }
-    setBusy(true); setMessage('');
-    try {
-      const response = await fetch('/api/maintenance/' + action, {
-        method: 'POST',
-        headers: { 'x-maintenance-key': key },
-      });
-      const result = await response.json() as { error?: string };
-      if (!response.ok) throw new Error(result.error || 'The request failed.');
-      await refresh();
-      setMessage(action === 'activate' ? 'Maintenance is now active.' : 'Maintenance has been turned off.');
-    } catch (error) { setMessage(error instanceof Error ? error.message : 'The request failed.'); }
-    finally { setBusy(false); }
-  };
-  return (
-    <main className="maintenance-screen">
-      <section className="maintenance-card maintenance-admin-card">
-        <div className="maintenance-mark"><Leaf size={25} /></div>
-        <p className="maintenance-eyebrow">TEA CHAT · ADMIN</p>
-        <h1>Maintenance control</h1>
-        <p className="maintenance-copy">Activate a seven-day maintenance window. The countdown begins immediately after activation.</p>
-        <label className="maintenance-key-label" htmlFor="maintenance-key">Admin key</label>
-        <input id="maintenance-key" className="maintenance-key-input" type="password" autoComplete="current-password" value={key} onChange={(event) => setKey(event.target.value)} placeholder="Enter your admin key" />
-        <div className="maintenance-admin-status">{state === null ? 'Checking status…' : state.active ? 'Maintenance is active' : 'Maintenance is off'}</div>
-        {state?.active && state.endsAt && <p className="maintenance-foot">Scheduled to reopen: {new Date(state.endsAt).toLocaleString()}</p>}
-        <div className="maintenance-admin-actions">
-          <button type="button" disabled={busy} onClick={() => void changeMode('activate')}>Activate for 7 days</button>
-          <button type="button" className="maintenance-stop-button" disabled={busy || !state?.active} onClick={() => void changeMode('deactivate')}>Turn maintenance off</button>
-        </div>
-        {message && <p className="maintenance-admin-message" role="status">{message}</p>}
-      </section>
-    </main>
-  );
-}
 
 function MaintenanceGate({ children }: { children: ReactNode }) {
   const [state, setState] = useState<MaintenanceState | null>(null);
