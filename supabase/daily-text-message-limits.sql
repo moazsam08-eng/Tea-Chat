@@ -3,15 +3,20 @@ create table if not exists public.daily_text_message_limits (
   channel_cid text not null check (char_length(channel_cid) between 1 and 255),
   user_id uuid not null references auth.users(id) on delete cascade,
   local_date date not null,
-  message_count smallint not null default 0 check (message_count between 0 and 10),
+  message_count smallint not null default 0 check (message_count between 0 and 32767),
   updated_at timestamptz not null default now(),
   primary key (channel_cid, user_id)
 );
 
+alter table public.daily_text_message_limits drop constraint if exists daily_text_message_limits_message_count_check;
+alter table public.daily_text_message_limits add constraint daily_text_message_limits_message_count_check check (message_count between 0 and 32767);
+
 alter table public.daily_text_message_limits enable row level security;
 revoke all on table public.daily_text_message_limits from public, anon, authenticated;
 
-create or replace function public.consume_daily_text_message(p_channel_cid text, p_user_id uuid)
+drop function if exists public.consume_daily_text_message(text, uuid);
+
+create or replace function public.consume_daily_text_message(p_channel_cid text, p_user_id uuid, p_limit integer)
 returns integer
 language plpgsql
 security definer
@@ -21,6 +26,10 @@ declare
   v_today date := (now() at time zone 'Africa/Cairo')::date;
   v_count integer;
 begin
+  if p_limit is null or p_limit < 1 or p_limit > 32767 then
+    raise exception 'Invalid daily message limit.' using errcode = '22023';
+  end if;
+
   if p_user_id is null or p_channel_cid is null
     or btrim(p_channel_cid) <> p_channel_cid
     or char_length(p_channel_cid) < 1 or char_length(p_channel_cid) > 255 then
@@ -37,7 +46,7 @@ begin
         end,
         updated_at = now()
     where daily_text_message_limits.local_date <> excluded.local_date
-       or daily_text_message_limits.message_count < 10
+       or daily_text_message_limits.message_count < p_limit
   returning message_count into v_count;
 
   if v_count is not null then
@@ -80,7 +89,7 @@ begin
 end;
 $$;
 
-revoke all on function public.consume_daily_text_message(text, uuid) from public, anon, authenticated;
-grant execute on function public.consume_daily_text_message(text, uuid) to service_role;
+revoke all on function public.consume_daily_text_message(text, uuid, integer) from public, anon, authenticated;
+grant execute on function public.consume_daily_text_message(text, uuid, integer) to service_role;
 revoke all on function public.get_daily_text_message_count(text) from public, anon;
 grant execute on function public.get_daily_text_message_count(text) to authenticated;
