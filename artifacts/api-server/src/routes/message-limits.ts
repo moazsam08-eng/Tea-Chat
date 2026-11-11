@@ -110,6 +110,7 @@ router.post("/webhooks/stream/before-message-send", async (req: Request, res: Re
     const { data: count, error } = await supabase.rpc("consume_daily_text_message", {
       p_channel_cid: channelCid,
       p_user_id: userId,
+      p_limit: dailyLimit,
     });
 
     if (error || typeof count !== "number") {
