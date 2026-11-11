@@ -458,7 +458,7 @@ export function TeaWorkspace({ user, streamToken, supabase, onSignOut }: Workspa
         {connectionError && <div style={{ position: 'absolute', zIndex: 8, top: 12, left: 62, right: 12 }} className="auth-error" role="alert" data-testid="status-stream-error"><CircleAlert size={14} style={{ verticalAlign: 'middle', marginRight: 5 }} />{connectionError}{apiKey && <button type="button" onClick={() => { setConnectionError(''); setConnectionAttempt((attempt) => attempt + 1); }} className="text-button" style={{ marginLeft: 9 }} data-testid="button-retry-stream-connect">Try again</button>}</div>}
         {client ? (
           activeChannel
-            ? <Channel channel={activeChannel} Attachment={TeaChatAttachment}><ConversationPanel disabled={working || !apiKey} onCall={(channel, audioOnly) => { void startCall(channel, audioOnly); }} /></Channel>
+            ? <Channel channel={activeChannel} Attachment={TeaChatAttachment}><ConversationPanel disabled={working || !apiKey} supabase={supabase} onCall={(channel, audioOnly) => { void startCall(channel, audioOnly); }} /></Channel>
             : <Channel Attachment={TeaChatAttachment}><ConversationPanel disabled={working || !apiKey} onCall={(channel, audioOnly) => { void startCall(channel, audioOnly); }} /></Channel>
         ) : !connectionError && (
           <div className="chat-empty-state" data-testid="empty-chat-loading">
@@ -537,7 +537,93 @@ function ChannelTools({ disabled, onCall }: { disabled: boolean; onCall: (channe
   </>;
 }
 
-function ConversationPanel({ disabled, onCall }: { disabled: boolean; onCall: (channel: StreamChannel, audioOnly: boolean) => void }) {
+function cairoDateKey(timestamp: number) {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Africa/Cairo',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(new Date(timestamp));
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return `${values.year}-${values.month}-${values.day}`;
+}
+
+function getNextCairoMidnight(now: number) {
+  const today = cairoDateKey(now);
+  let low = now;
+  let high = now + 36 * 60 * 60 * 1000;
+  while (high - low > 1000) {
+    const middle = Math.floor((low + high) / 2);
+    if (cairoDateKey(middle) === today) low = middle;
+    else high = middle;
+  }
+  return high;
+}
+
+function formatCountdown(milliseconds: number) {
+  const totalSeconds = Math.max(0, Math.floor(milliseconds / 1000));
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  return [hours, minutes, seconds].map((value) => String(value).padStart(2, '0')).join(':');
+}
+
+function DailyTextLimit({ channel, supabase }: { channel: StreamChannel; supabase: SupabaseClient }) {
+  const [count, setCount] = useState(0);
+  const [clock, setClock] = useState(() => {
+    const now = Date.now();
+    return { now, resetAt: getNextCairoMidnight(now) };
+  });
+
+  const refreshCount = useCallback(async () => {
+    const { data, error } = await supabase.rpc('get_daily_text_message_count', {
+      p_channel_cid: channel.cid,
+    });
+    if (!error && typeof data === 'number') setCount(Math.min(10, Math.max(0, data)));
+  }, [channel.cid, supabase]);
+
+  useEffect(() => {
+    void refreshCount();
+    const subscription = channel.on('message.new', () => { void refreshCount(); });
+    const refreshInterval = window.setInterval(() => { void refreshCount(); }, 15000);
+    const clockInterval = window.setInterval(() => {
+      setClock((current) => {
+        const now = Date.now();
+        return now >= current.resetAt
+          ? { now, resetAt: getNextCairoMidnight(now) }
+          : { ...current, now };
+      });
+    }, 1000);
+    return () => {
+      subscription.unsubscribe();
+      window.clearInterval(refreshInterval);
+      window.clearInterval(clockInterval);
+    };
+  }, [channel, refreshCount]);
+
+  useEffect(() => {
+    if (clock.now >= clock.resetAt - 1000) void refreshCount();
+  }, [clock.now, clock.resetAt, refreshCount]);
+
+  return (
+    <div className="daily-text-limit" aria-live="polite" data-testid="daily-text-limit">
+      <div className="daily-text-limit__usage">
+        <span>Daily text messages</span>
+        <strong>{count}/10</strong>
+      </div>
+      <div className="daily-text-limit__track" aria-label={`${count} of 10 text messages used`}>
+        <span style={{ width: `${count * 10}%` }} />
+      </div>
+      <div className="daily-text-limit__reset">
+        <span>{count >= 10 ? 'Your text limit resets in' : 'Resets in'}</span>
+        <strong>{formatCountdown(clock.resetAt - clock.now)}</strong>
+        <span>Cairo time</span>
+      </div>
+    </div>
+  );
+}
+
+function ConversationPanel({ disabled, onCall, supabase }: { disabled: boolean; onCall: (channel: StreamChannel, audioOnly: boolean) => void; supabase: SupabaseClient }) {
   const { channel } = useChannelStateContext();
   const audioRecordingConfig = useMemo(
     () => ({ transcoderConfig: { encoder: encodeToMp3 } }),
@@ -555,6 +641,7 @@ function ConversationPanel({ disabled, onCall }: { disabled: boolean; onCall: (c
         <ChannelTools disabled={disabled} onCall={onCall} />
       </div>
       <MessageList />
+      <DailyTextLimit channel={channel} supabase={supabase} />
       <MessageInput
         audioRecordingEnabled
         audioRecordingConfig={audioRecordingConfig}
