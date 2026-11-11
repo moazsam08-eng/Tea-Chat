@@ -1,6 +1,7 @@
 import express, { type Express } from "express";
 import cors from "cors";
 import router from "./routes";
+import { maintenanceGate } from "./routes/maintenance";
 
 const app: Express = express();
 
@@ -17,7 +18,7 @@ app.use("/api/webhooks/stream/before-message-send", express.raw({ type: "applica
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-app.use("/api", router);
+app.use("/api", maintenanceGate, router);
 
 // Express 5 forwards rejected async route handlers here. Without this
 // middleware, its default handler returns an HTML 500 page and hides the
