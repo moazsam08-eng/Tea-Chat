@@ -216,7 +216,7 @@ function MaintenanceGate({ children }: { children: ReactNode }) {
     return () => { alive = false; window.clearInterval(timer); };
   }, []);
   if (!state) return <div className="loading-screen"><div className="loading-brand"><LoaderCircle size={19} className="animate-spin" />Checking Tea Chat…</div></div>;
-  if (state.active && window.location.pathname !== '/maintenance-admin') return <MaintenanceScreen endsAt={state.endsAt} />;
+  if (state.active) return <MaintenanceScreen endsAt={state.endsAt} />;
   return <>{children}</>;
 }
 
