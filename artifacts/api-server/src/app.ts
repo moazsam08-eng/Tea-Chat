@@ -12,6 +12,8 @@ app.use((req, _res, next) => {
 });
 
 app.use(cors());
+// Preserve the exact raw body for Stream's signed before-message-send webhook.
+app.use("/api/webhooks/stream/before-message-send", express.raw({ type: "application/json", limit: "1mb" }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
