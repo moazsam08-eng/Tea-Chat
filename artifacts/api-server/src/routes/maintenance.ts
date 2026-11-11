@@ -12,60 +12,49 @@ function getSupabase() {
   return createClient(url, key, { auth: { autoRefreshToken: false, persistSession: false } });
 }
 
-function isAdmin(req: Request): boolean {
-  const key = process.env.MAINTENANCE_ADMIN_KEY ?? "";
-  return Boolean(key && req.header("x-maintenance-key") === key);
+function isEnabled(): boolean {
+  return ["on", "true", "1", "yes"].includes((process.env.MAINTENANCE_MODE ?? "off").trim().toLowerCase());
 }
 
-export async function readMaintenanceState(): Promise<{ active: boolean; startedAt: string | null; endsAt: string | null }> {
-  const { data, error } = await getSupabase().from(TABLE).select("started_at").eq("id", "global").maybeSingle();
+async function syncAndReadState(): Promise<{ active: boolean; startedAt: string | null; endsAt: string | null }> {
+  const db = getSupabase();
+  if (!isEnabled()) {
+    const { error } = await db.from(TABLE).delete().eq("id", "global");
+    if (error) throw error;
+    return { active: false, startedAt: null, endsAt: null };
+  }
+
+  const { data, error } = await db.from(TABLE).select("started_at").eq("id", "global").maybeSingle();
   if (error) throw error;
-  if (!data?.started_at) return { active: false, startedAt: null, endsAt: null };
+  if (!data?.started_at) {
+    const startedAt = new Date().toISOString();
+    const { error: insertError } = await db.from(TABLE).insert({ id: "global", started_at: startedAt });
+    if (insertError) throw insertError;
+    const endsAt = new Date(Date.parse(startedAt) + DURATION).toISOString();
+    return { active: true, startedAt, endsAt };
+  }
+
   const start = new Date(data.started_at).getTime();
   const end = start + DURATION;
-  const active = Number.isFinite(start) && Date.now() < end;
-  return { active, startedAt: active ? new Date(start).toISOString() : null, endsAt: active ? new Date(end).toISOString() : null };
+  if (!Number.isFinite(start) || Date.now() >= end) {
+    return { active: false, startedAt: null, endsAt: null };
+  }
+  return { active: true, startedAt: new Date(start).toISOString(), endsAt: new Date(end).toISOString() };
 }
 
 router.get("/maintenance/status", async (_req: Request, res: Response): Promise<void> => {
   res.setHeader("Cache-Control", "no-store");
-  try { res.json(await readMaintenanceState()); }
+  try { res.json(await syncAndReadState()); }
   catch (error) {
     console.error("[api] Maintenance status unavailable:", error instanceof Error ? error.message : "Unknown error");
     res.status(503).json({ error: "Maintenance status is temporarily unavailable." });
   }
 });
 
-router.post("/maintenance/activate", async (req: Request, res: Response): Promise<void> => {
-  if (!isAdmin(req)) { res.status(401).json({ error: "Unauthorized." }); return; }
-  try {
-    const startedAt = new Date().toISOString();
-    const { error } = await getSupabase().from(TABLE).upsert({ id: "global", started_at: startedAt }, { onConflict: "id" });
-    if (error) throw error;
-    res.setHeader("Cache-Control", "no-store");
-    res.json({ active: true, startedAt, endsAt: new Date(Date.now() + DURATION).toISOString() });
-  } catch (error) {
-    console.error("[api] Could not activate maintenance:", error instanceof Error ? error.message : "Unknown error");
-    res.status(503).json({ error: "Could not activate maintenance mode." });
-  }
-});
-
-router.post("/maintenance/deactivate", async (req: Request, res: Response): Promise<void> => {
-  if (!isAdmin(req)) { res.status(401).json({ error: "Unauthorized." }); return; }
-  try {
-    const { error } = await getSupabase().from(TABLE).delete().eq("id", "global");
-    if (error) throw error;
-    res.json({ active: false, startedAt: null, endsAt: null });
-  } catch (error) {
-    console.error("[api] Could not deactivate maintenance:", error instanceof Error ? error.message : "Unknown error");
-    res.status(503).json({ error: "Could not deactivate maintenance mode." });
-  }
-});
-
 export async function maintenanceGate(req: Request, res: Response, next: NextFunction): Promise<void> {
-  if (["/maintenance/status", "/maintenance/activate", "/maintenance/deactivate"].includes(req.path)) { next(); return; }
+  if (req.path === "/maintenance/status") { next(); return; }
   try {
-    const state = await readMaintenanceState();
+    const state = await syncAndReadState();
     if (state.active) {
       res.setHeader("Retry-After", "60");
       res.status(503).json({ error: "Tea Chat is temporarily unavailable for scheduled maintenance.", maintenance: true, endsAt: state.endsAt });
@@ -73,8 +62,7 @@ export async function maintenanceGate(req: Request, res: Response, next: NextFun
     }
     next();
   } catch (error) {
-    // Maintenance is opt-in. If its table or credentials are not ready, keep the
-    // existing chat service available rather than accidentally locking everyone out.
+    // Maintenance is opt-in. A missing setup must never lock users out.
     console.error("[api] Maintenance state could not be checked; allowing normal traffic:", error instanceof Error ? error.message : "Unknown error");
     next();
   }
