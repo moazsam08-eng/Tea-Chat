@@ -107,7 +107,7 @@ router.post("/webhooks/stream/before-message-send", async (req: Request, res: Re
       return;
     }
 
-    if (count > 10) {
+    if (count < 0) {
       rejectMessage(res, "You have used your 10 text messages for this conversation today. Your limit resets at midnight Cairo time.");
       return;
     }
