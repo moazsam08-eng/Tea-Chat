@@ -10,7 +10,8 @@
   "keep_vars": true,
   "vars": {
     "NODE_ENV": "production",
-    "LOG_LEVEL": "info"
+    "LOG_LEVEL": "info",
+    "MAINTENANCE_MODE": "off"
   },
   "assets": {
     "directory": "./dist/public",
