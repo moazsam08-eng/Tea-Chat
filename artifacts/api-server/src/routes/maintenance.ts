@@ -73,16 +73,11 @@ export async function maintenanceGate(req: Request, res: Response, next: NextFun
     }
     next();
   } catch (error) {
-    const code = typeof error === "object" && error !== null && "code" in error ? String(error.code) : "";
-    // Keep the existing app online during rollout until the one-time SQL setup is applied.
-    if (code === "PGRST205" || code === "42P01") {
-      console.warn("[api] Maintenance table is not installed yet; allowing normal API traffic.");
-      next();
-      return;
-    }
-    console.error("[api] Maintenance gate could not verify state:", error instanceof Error ? error.message : "Unknown error");
-    res.status(503).json({ error: "The service is temporarily unavailable while maintenance status is checked." });
+    // Maintenance is opt-in. If its table or credentials are not ready, keep the
+    // existing chat service available rather than accidentally locking everyone out.
+    console.error("[api] Maintenance state could not be checked; allowing normal traffic:", error instanceof Error ? error.message : "Unknown error");
+    next();
   }
-}
+}}
 
 export default router;
