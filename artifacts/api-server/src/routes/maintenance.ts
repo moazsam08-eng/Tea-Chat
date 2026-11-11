@@ -46,8 +46,17 @@ router.get("/maintenance/status", async (_req: Request, res: Response): Promise<
   res.setHeader("Cache-Control", "no-store");
   try { res.json(await syncAndReadState()); }
   catch (error) {
-    console.error("[api] Maintenance status unavailable:", error instanceof Error ? error.message : "Unknown error");
-    res.status(503).json({ error: "Maintenance status is temporarily unavailable." });
+    const detail = error && typeof error === "object"
+      ? error as { message?: unknown; code?: unknown; details?: unknown; hint?: unknown }
+      : null;
+    const code = typeof detail?.code === "string" ? detail.code : "UNKNOWN";
+    const message = typeof detail?.message === "string" ? detail.message : "Unknown maintenance error";
+    console.error("[api] Maintenance status unavailable:", { code, message, details: detail?.details, hint: detail?.hint });
+    res.status(503).json({
+      error: "Maintenance status is temporarily unavailable.",
+      diagnostic: code,
+      reason: message,
+    });
   }
 });
 
