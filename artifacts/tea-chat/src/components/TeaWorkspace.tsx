@@ -459,7 +459,7 @@ export function TeaWorkspace({ user, streamToken, supabase, onSignOut }: Workspa
         {client ? (
           activeChannel
             ? <Channel channel={activeChannel} Attachment={TeaChatAttachment}><ConversationPanel disabled={working || !apiKey} supabase={supabase} onCall={(channel, audioOnly) => { void startCall(channel, audioOnly); }} /></Channel>
-            : <Channel Attachment={TeaChatAttachment}><ConversationPanel disabled={working || !apiKey} onCall={(channel, audioOnly) => { void startCall(channel, audioOnly); }} /></Channel>
+            : <Channel Attachment={TeaChatAttachment}><ConversationPanel disabled={working || !apiKey} supabase={supabase} onCall={(channel, audioOnly) => { void startCall(channel, audioOnly); }} /></Channel>
         ) : !connectionError && (
           <div className="chat-empty-state" data-testid="empty-chat-loading">
             <div className="empty-note"><div className="cup-illustration"><div className="loading-leaf" /></div><h2>Warming the teapot</h2><p>Connecting your conversations, just a moment.</p></div>
