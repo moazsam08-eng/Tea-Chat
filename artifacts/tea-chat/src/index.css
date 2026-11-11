@@ -477,3 +477,25 @@
 .dark .lock-modal-message { color: #c6e0c8; background: #263a2d; }
 .dark .lock-code-type { border-color: var(--line); color: var(--muted-ink); background: #17211b; }
 .dark .lock-code-type[aria-pressed="true"] { color: var(--leaf); background: #26352b; }
+
+.daily-text-limit {
+  display: grid;
+  gap: 7px;
+  padding: 9px 24px 0;
+  color: #64766a;
+  font-size: 10px;
+}
+.daily-text-limit__usage, .daily-text-limit__reset {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.daily-text-limit__usage { justify-content: space-between; color: #637568; }
+.daily-text-limit__usage strong { color: var(--leaf-deep); font-size: 11px; font-variant-numeric: tabular-nums; }
+.daily-text-limit__track { height: 4px; overflow: hidden; border-radius: 999px; background: #e5e9df; }
+.daily-text-limit__track span { display: block; height: 100%; border-radius: inherit; background: #62836a; transition: width .2s ease; }
+.daily-text-limit__reset { justify-content: flex-end; color: #8a948b; }
+.daily-text-limit__reset strong { color: var(--leaf-deep); font-size: 11px; font-variant-numeric: tabular-nums; }
+.dark .daily-text-limit, .dark .daily-text-limit__usage, .dark .daily-text-limit__reset { color: var(--muted-foreground); }
+.dark .daily-text-limit__usage strong, .dark .daily-text-limit__reset strong { color: var(--leaf); }
+.dark .daily-text-limit__track { background: #35483a; }
