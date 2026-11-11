@@ -78,6 +78,6 @@ export async function maintenanceGate(req: Request, res: Response, next: NextFun
     console.error("[api] Maintenance state could not be checked; allowing normal traffic:", error instanceof Error ? error.message : "Unknown error");
     next();
   }
-}}
+}
 
 export default router;
